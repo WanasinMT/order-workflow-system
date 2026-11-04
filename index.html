@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ระบบจัดการกระบวนการคำสั่งซื้อ (Order Workflow Management System)</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="subdistricts.js"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <!-- Google Fonts Prompt -->
@@ -441,13 +440,56 @@
       }
     }
 
-    // ฟังก์ชันค้นหาตำบลอัตโนมัติ (ครบทุกตำบลทั่วประเทศ)
+    // ฟังก์ชันเชื่อมต่อ Online API ดึงข้อมูลตำบล/อำเภอ/จังหวัด ทั่วประเทศไทยแบบเรียลไทม์
     document.addEventListener("DOMContentLoaded", () => {
-      initThailandAddressData();
-
       const searchInput = document.getElementById('searchSubDistrict');
       const suggestionsBox = document.getElementById('subDistrictSuggestions');
       const hiddenInput = document.getElementById('subDistrict');
+
+      let fullThailandData = [];
+
+      async function fetchThailandAddressAPI() {
+        try {
+          const [tambonRes, amphoeRes, provinceRes] = await Promise.all([
+            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_tambon.json'),
+            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_amphure.json'),
+            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_province.json')
+          ]);
+
+          const tambonData = await tambonRes.json();
+          const amphoeData = await amphoeRes.json();
+          const provinceData = await provinceRes.json();
+
+          const amphoeMap = {};
+          amphoeData.forEach(a => { amphoeMap[a.id] = { name: a.name_th, province_id: a.province_id }; });
+
+          const provinceMap = {};
+          provinceData.forEach(p => { provinceMap[p.id] = p.name_th; });
+
+          fullThailandData = tambonData.map(t => {
+            const amp = amphoeMap[t.amphure_id] || {};
+            return {
+              subdistrict: t.name_th,
+              district: amp.name || '',
+              province: provinceMap[amp.province_id] || ''
+            };
+          });
+          console.log("⚡ Online API Loaded Nationwide Subdistricts:", fullThailandData.length);
+        } catch (e) {
+          console.warn("⚠️ ไม่สามารถโหลด Online API ได้ ใช้ข้อมูลสำรองพื้นฐานแทน");
+          fullThailandData = [
+            { subdistrict: "สุไหงโกลก", district: "สุไหงโกลก", province: "นราธิวาส" },
+            { subdistrict: "เบตง", district: "เบตง", province: "ยะลา" },
+            { subdistrict: "ตากใบ", district: "ตากใบ", province: "นราธิวาส" },
+            { subdistrict: "แม่สาย", district: "แม่สาย", province: "เชียงราย" },
+            { subdistrict: "คลองใหญ่", district: "คลองใหญ่", province: "ตราด" },
+            { subdistrict: "บางซื่อ", district: "บางซื่อ", province: "กรุงเทพมหานคร" },
+            { subdistrict: "ปากเกร็ด", district: "ปากเกร็ด", province: "นนทบุรี" }
+          ];
+        }
+      }
+
+      fetchThailandAddressAPI();
 
       if (searchInput) {
         searchInput.addEventListener('input', function() {
@@ -459,34 +501,24 @@
             return;
           }
 
-          const dataList = (typeof thailandSubdistricts !== 'undefined' && thailandSubdistricts.length > 0) 
-            ? thailandSubdistricts 
-            : thailandAddressData;
-
-          const matches = dataList.filter(item => {
-            const sub = item.subdistrict || item.tambon || '';
-            const dist = item.district || item.amphoe || '';
-            const prov = item.province || '';
-            return sub.toLowerCase().includes(keyword) || 
-                   dist.toLowerCase().includes(keyword) || 
-                   prov.toLowerCase().includes(keyword);
+          const matches = fullThailandData.filter(item => {
+            return item.subdistrict.toLowerCase().includes(keyword) || 
+                   item.district.toLowerCase().includes(keyword) || 
+                   item.province.toLowerCase().includes(keyword);
           }).slice(0, 50);
 
           if (matches.length > 0) {
             suggestionsBox.style.display = 'block';
             matches.forEach(item => {
-              const sub = item.subdistrict || item.tambon || '';
-              const dist = item.district || item.amphoe || '';
-              const prov = item.province || '';
-              const fullName = `${sub} (อ./เขต ${dist} จ.${prov})`;
-              const isBorder = BORDER_DISTRICTS.some(b => sub.includes(b) || dist.includes(b));
+              const fullName = `${item.subdistrict} (อ./เขต ${item.district} จ.${item.province})`;
+              const isBorder = BORDER_DISTRICTS.some(b => item.subdistrict.includes(b) || item.district.includes(b));
 
               const div = document.createElement('div');
               div.className = 'suggestion-item';
               div.innerHTML = `
                 <i class="fa-solid fa-location-dot" style="color:var(--primary-color);"></i> 
-                <strong>${sub}</strong> 
-                <span style="color:#64748b; font-size:12px;">-> อ./เขต ${dist} จ.${prov}</span>
+                <strong>${item.subdistrict}</strong> 
+                <span style="color:#64748b; font-size:12px;">-> อ./เขต ${item.district} จ.${item.province}</span>
                 ${isBorder ? '<span class="badge badge-orange" style="margin-left:6px;"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : ''}
               `;
 
