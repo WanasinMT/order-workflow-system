@@ -286,6 +286,30 @@
                 <textarea id="custAddress" class="form-control" rows="2" placeholder="บ้านเลขที่, ถนน, ซอย..." required></textarea>
               </div>
 
+              <!-- Lat/Lng fields -->
+              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-location-dot"></i> ละติจูด (Latitude)</label>
+                  <input type="text" id="custLat" class="form-control" placeholder="เช่น 13.7563" />
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-location-dot"></i> ลองจิจูด (Longitude)</label>
+                  <input type="text" id="custLng" class="form-control" placeholder="เช่น 100.5018" />
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary" onclick="getGPSLocation()" style="width: 100%; margin-bottom: 12px; font-size: 13px;">
+                <i class="fa-solid fa-crosshairs"></i> ดึงพิกัดปัจจุบันอัตโนมัติ (GPS)
+              </button>
+
+              <!-- Camera / File Upload Field -->
+              <div class="form-group">
+                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพสถานที่ / หน้างาน</label>
+                <input type="file" id="custImageFile" class="form-control" accept="image/*" capture="environment" onchange="previewSelectedImage(event)" />
+                <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
+                  <img id="imagePreview" src="" alt="Preview" style="max-width: 100%; max-height: 160px; border-radius: 6px; border: 1px solid var(--border-color);" />
+                </div>
+              </div>
+
               <div class="support-box">
                 <h4><i class="fa-solid fa-circle-info"></i> เครื่องมือสนับสนุนการทำงาน (Need Support System):</h4>
                 <ul>
@@ -343,7 +367,8 @@
                 <tr>
                   <th>เลขที่ Order</th>
                   <th>ลูกค้า</th>
-                  <th>พื้นที่ / ตำบล</th>
+                  <th>พื้นที่ / พิกัด</th>
+                  <th>รูปภาพ</th>
                   <th>ธงชายแดน</th>
                   <th>สถานะปัจจุบัน</th>
                   <th>การจัดการ</th>
@@ -377,6 +402,7 @@
     let authMode = 'login';
     let currentRoleView = 'SALE';
     let selectedOrderId = '';
+    let currentBase64Image = '';
 
     const BORDER_DISTRICTS = [
       "สุไหงโกลก (นราธิวาส)",
@@ -399,6 +425,38 @@
       'REJECTED_RED_ZONE': { text: 'ปฏิเสธ (พื้นที่ Red Zone)', class: 'badge-red' },
       'REJECTED_LMR_SOA': { text: 'ปฏิเสธงาน (LMR/SOA)', class: 'badge-red' }
     };
+
+    function previewSelectedImage(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          currentBase64Image = e.target.result;
+          const previewImg = document.getElementById('imagePreview');
+          const container = document.getElementById('imagePreviewContainer');
+          previewImg.src = currentBase64Image;
+          container.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function getGPSLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            document.getElementById('custLat').value = position.coords.latitude.toFixed(6);
+            document.getElementById('custLng').value = position.coords.longitude.toFixed(6);
+            alert("ดึงพิกัด GPS สำเร็จ!");
+          },
+          (error) => {
+            alert("ไม่สามารถดึงพิกัดได้: " + error.message);
+          }
+        );
+      } else {
+        alert("เบราว์เซอร์ของคุณไม่รองรับ Geolocation");
+      }
+    }
 
     function toggleAuthMode(mode) {
       authMode = mode;
@@ -441,7 +499,6 @@
         const role = document.getElementById('authRole').value;
         try {
           const res = await window.fbAuth.createUserWithEmailAndPassword(window.auth, email, password);
-          // Save user profile & role to Firestore
           await window.fs.setDoc(window.fs.doc(window.db, "users", res.user.uid), {
             uid: res.user.uid,
             email: email,
@@ -532,10 +589,19 @@
         if (isSelected) tr.classList.add('selected');
         tr.onclick = () => selectOrder(order.id);
 
+        const latLngText = (order.lat && order.lng) 
+          ? `<br><small style="color:var(--primary-color);"><i class="fa-solid fa-location-dot"></i> ${order.lat}, ${order.lng}</small>` 
+          : '';
+
+        const imgTag = order.imageUrl 
+          ? `<img src="${order.imageUrl}" class="thumb-img" alt="Location Image" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" onerror="this.src='https://via.placeholder.com/40?text=No+Img'">` 
+          : `<span style="color:var(--text-muted); font-size:11px;">ไม่มีรูป</span>`;
+
         tr.innerHTML = `
           <td><strong>${order.id}</strong></td>
           <td>${order.customer}</td>
-          <td>${order.subDistrict}</td>
+          <td>${order.subDistrict}${latLngText}</td>
+          <td>${imgTag}</td>
           <td>${order.isBorderArea ? '<span class="badge badge-orange"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : '<span class="badge badge-gray">ปกติ</span>'}</td>
           <td><span class="badge ${statusInfo.class}">${statusInfo.text}</span></td>
           <td>
@@ -612,6 +678,7 @@
           <div style="background: var(--bg-light); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color);">
             <h4>คำสั่งซื้อ: ${selectedOrder.id}</h4>
             <p><strong>ที่อยู่ติดตั้ง:</strong> ${selectedOrder.address}</p>
+            <p><strong>พิกัด:</strong> ${selectedOrder.lat && selectedOrder.lng ? `${selectedOrder.lat}, ${selectedOrder.lng}` : 'ไม่ได้ระบุ'}</p>
             <p><strong>ธงพื้นที่ชายแดน:</strong> ${selectedOrder.isBorderArea ? '<span style="color:red; font-weight:bold;">มีธงเสี่ยงชายแดน</span>' : 'ไม่มี'}</p>
             <div style="margin-top: 15px;">${techActionsHtml}</div>
           </div>
@@ -690,6 +757,8 @@
       const phone = document.getElementById('custPhone').value;
       const subDist = document.getElementById('subDistrict').value;
       const addr = document.getElementById('custAddress').value;
+      const lat = document.getElementById('custLat').value;
+      const lng = document.getElementById('custLng').value;
 
       const isBorder = BORDER_DISTRICTS.includes(subDist);
       const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
@@ -703,6 +772,9 @@
         phone: phone,
         address: addr,
         subDistrict: subDist,
+        lat: lat || "",
+        lng: lng || "",
+        imageUrl: currentBase64Image || "",
         isBorderArea: isBorder,
         status: "REGISTERED",
         systemRemark: isBorder ? "พื้นที่เสี่ยงชายแดน กรุณาขออนุมัติผ่าน TamCI ก่อนติดตั้ง" : "-",
@@ -733,6 +805,8 @@
 
       selectedOrderId = newId;
       document.getElementById('orderForm').reset();
+      currentBase64Image = '';
+      document.getElementById('imagePreviewContainer').style.display = 'none';
       processSystemFlow(newId);
     }
 
