@@ -58,7 +58,6 @@
 
       onAuthStateChanged(auth, async (user) => {
         if (user) {
-          // ดึงข้อมูล Role ของ User จาก Firestore collection 'users'
           try {
             const userDocRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userDocRef);
@@ -301,12 +300,27 @@
                 <i class="fa-solid fa-crosshairs"></i> ดึงพิกัดปัจจุบันอัตโนมัติ (GPS)
               </button>
 
-              <!-- Camera / File Upload Field -->
+              <!-- Camera Field -->
               <div class="form-group">
-                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพสถานที่ / หน้างาน</label>
+                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพสถานที่ / หน้างาน (เปิดกล้องถ่ายรูป)</label>
                 <input type="file" id="custImageFile" class="form-control" accept="image/*" capture="environment" onchange="previewSelectedImage(event)" />
                 <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
-                  <img id="imagePreview" src="" alt="Preview" style="max-width: 100%; max-height: 160px; border-radius: 6px; border: 1px solid var(--border-color);" />
+                  <img id="imagePreview" src="" alt="Preview" style="max-width: 100%; max-height: 140px; border-radius: 6px; border: 1px solid var(--border-color);" />
+                </div>
+              </div>
+
+              <!-- Attach Document File Field (ใหม่: ปุ่มแนบไฟล์เอกสาร) -->
+              <div class="form-group">
+                <label><i class="fa-solid fa-paperclip"></i> แนบไฟล์เอกสารเพิ่มเติม (PDF, DOCX, ZIP, Images)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <input type="file" id="custAttachedFile" class="form-control" onchange="handleFileSelect(event)" style="display: none;" />
+                  <button type="button" class="btn btn-secondary" onclick="document.getElementById('custAttachedFile').click()" style="width: 100%;">
+                    <i class="fa-solid fa-file-arrow-up"></i> เลือกไฟล์เพื่อแนบ...
+                  </button>
+                </div>
+                <div id="attachedFileBadge" style="margin-top: 8px; display: none; background: #e0f2fe; color: #0369a1; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                  <i class="fa-solid fa-file"></i> <span id="attachedFileName"></span>
+                  <button type="button" onclick="clearAttachedFile()" style="background: none; border: none; color: #ef4444; float: right; cursor: pointer; font-weight: bold;">✕</button>
                 </div>
               </div>
 
@@ -368,7 +382,7 @@
                   <th>เลขที่ Order</th>
                   <th>ลูกค้า</th>
                   <th>พื้นที่ / พิกัด</th>
-                  <th>รูปภาพ</th>
+                  <th>รูปภาพ / ไฟล์แนบ</th>
                   <th>ธงชายแดน</th>
                   <th>สถานะปัจจุบัน</th>
                   <th>การจัดการ</th>
@@ -403,6 +417,7 @@
     let currentRoleView = 'SALE';
     let selectedOrderId = '';
     let currentBase64Image = '';
+    let currentAttachedFile = null; // { fileName, fileData }
 
     const BORDER_DISTRICTS = [
       "สุไหงโกลก (นราธิวาส)",
@@ -439,6 +454,38 @@
         };
         reader.readAsDataURL(file);
       }
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          currentAttachedFile = {
+            fileName: file.name,
+            fileSize: (file.size / 1024).toFixed(1) + ' KB',
+            fileData: e.target.result
+          };
+          document.getElementById('attachedFileName').textContent = file.name + ' (' + currentAttachedFile.fileSize + ')';
+          document.getElementById('attachedFileBadge').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearAttachedFile() {
+      currentAttachedFile = null;
+      document.getElementById('custAttachedFile').value = '';
+      document.getElementById('attachedFileBadge').style.display = 'none';
+    }
+
+    function downloadAttachedFile(fileData, fileName) {
+      const a = document.createElement('a');
+      a.href = fileData;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     function getGPSLocation() {
@@ -594,14 +641,20 @@
           : '';
 
         const imgTag = order.imageUrl 
-          ? `<img src="${order.imageUrl}" class="thumb-img" alt="Location Image" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" onerror="this.src='https://via.placeholder.com/40?text=No+Img'">` 
-          : `<span style="color:var(--text-muted); font-size:11px;">ไม่มีรูป</span>`;
+          ? `<img src="${order.imageUrl}" class="thumb-img" alt="Location Image" style="width:38px; height:38px; object-fit:cover; border-radius:4px; margin-right:4px;" onerror="this.src='https://via.placeholder.com/38?text=No+Img'">` 
+          : '';
+
+        const fileBtn = order.attachedFile 
+          ? `<button class="btn btn-sm btn-secondary" title="${order.attachedFile.fileName}" onclick="event.stopPropagation(); downloadAttachedFile('${order.attachedFile.fileData}', '${order.attachedFile.fileName}')"><i class="fa-solid fa-paperclip"></i> ดาวน์โหลดไฟล์</button>` 
+          : '';
+
+        const mediaCell = (imgTag || fileBtn) ? `${imgTag}${fileBtn}` : `<span style="color:var(--text-muted); font-size:11px;">ไม่มีไฟล์/รูป</span>`;
 
         tr.innerHTML = `
           <td><strong>${order.id}</strong></td>
           <td>${order.customer}</td>
           <td>${order.subDistrict}${latLngText}</td>
-          <td>${imgTag}</td>
+          <td>${mediaCell}</td>
           <td>${order.isBorderArea ? '<span class="badge badge-orange"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : '<span class="badge badge-gray">ปกติ</span>'}</td>
           <td><span class="badge ${statusInfo.class}">${statusInfo.text}</span></td>
           <td>
@@ -679,6 +732,7 @@
             <h4>คำสั่งซื้อ: ${selectedOrder.id}</h4>
             <p><strong>ที่อยู่ติดตั้ง:</strong> ${selectedOrder.address}</p>
             <p><strong>พิกัด:</strong> ${selectedOrder.lat && selectedOrder.lng ? `${selectedOrder.lat}, ${selectedOrder.lng}` : 'ไม่ได้ระบุ'}</p>
+            <p><strong>ไฟล์แนบ:</strong> ${selectedOrder.attachedFile ? `<a href="#" onclick="downloadAttachedFile('${selectedOrder.attachedFile.fileData}', '${selectedOrder.attachedFile.fileName}'); return false;"><i class="fa-solid fa-paperclip"></i> ${selectedOrder.attachedFile.fileName}</a>` : 'ไม่มี'}</p>
             <p><strong>ธงพื้นที่ชายแดน:</strong> ${selectedOrder.isBorderArea ? '<span style="color:red; font-weight:bold;">มีธงเสี่ยงชายแดน</span>' : 'ไม่มี'}</p>
             <div style="margin-top: 15px;">${techActionsHtml}</div>
           </div>
@@ -775,6 +829,7 @@
         lat: lat || "",
         lng: lng || "",
         imageUrl: currentBase64Image || "",
+        attachedFile: currentAttachedFile || null,
         isBorderArea: isBorder,
         status: "REGISTERED",
         systemRemark: isBorder ? "พื้นที่เสี่ยงชายแดน กรุณาขออนุมัติผ่าน TamCI ก่อนติดตั้ง" : "-",
@@ -787,6 +842,10 @@
           { time: timeNow, role: "SALE", text: `ลงทะเบียนคำสั่งซื้อใหม่โดย ${currentUser.name}` }
         ]
       };
+
+      if (currentAttachedFile) {
+        newOrder.logs.push({ time: timeNow, role: "SALE", text: `แนบไฟล์เอกสาร: ${currentAttachedFile.fileName} (${currentAttachedFile.fileSize})` });
+      }
 
       if (isBorder) {
         newOrder.logs.push({ time: timeNow, role: "SYSTEM", text: "ตรวจพบ 72 ตำบลเสี่ยงชายแดน -> เพิ่มธง [Add Border Area Flag]" });
@@ -806,7 +865,9 @@
       selectedOrderId = newId;
       document.getElementById('orderForm').reset();
       currentBase64Image = '';
+      currentAttachedFile = null;
       document.getElementById('imagePreviewContainer').style.display = 'none';
+      document.getElementById('attachedFileBadge').style.display = 'none';
       processSystemFlow(newId);
     }
 
