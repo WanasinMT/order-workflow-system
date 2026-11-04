@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ระบบจัดการกระบวนการคำสั่งซื้อ (Order Workflow Management System)</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="subdistricts.js"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <!-- Google Fonts Prompt -->
@@ -458,24 +459,34 @@
             return;
           }
 
-          const matches = thailandAddressData.filter(item => 
-            (item.tambon && item.tambon.toLowerCase().includes(keyword)) ||
-            (item.amphoe && item.amphoe.toLowerCase().includes(keyword)) ||
-            (item.province && item.province.toLowerCase().includes(keyword))
-          ).slice(0, 30);
+          const dataList = (typeof thailandSubdistricts !== 'undefined' && thailandSubdistricts.length > 0) 
+            ? thailandSubdistricts 
+            : thailandAddressData;
+
+          const matches = dataList.filter(item => {
+            const sub = item.subdistrict || item.tambon || '';
+            const dist = item.district || item.amphoe || '';
+            const prov = item.province || '';
+            return sub.toLowerCase().includes(keyword) || 
+                   dist.toLowerCase().includes(keyword) || 
+                   prov.toLowerCase().includes(keyword);
+          }).slice(0, 50);
 
           if (matches.length > 0) {
             suggestionsBox.style.display = 'block';
             matches.forEach(item => {
-              const fullName = `${item.tambon} (อ.${item.amphoe} จ.${item.province})`;
-              const isBorder = BORDER_DISTRICTS.some(b => item.tambon.includes(b) || item.amphoe.includes(b));
+              const sub = item.subdistrict || item.tambon || '';
+              const dist = item.district || item.amphoe || '';
+              const prov = item.province || '';
+              const fullName = `${sub} (อ./เขต ${dist} จ.${prov})`;
+              const isBorder = BORDER_DISTRICTS.some(b => sub.includes(b) || dist.includes(b));
 
               const div = document.createElement('div');
               div.className = 'suggestion-item';
               div.innerHTML = `
                 <i class="fa-solid fa-location-dot" style="color:var(--primary-color);"></i> 
-                <strong>${item.tambon}</strong> 
-                <span style="color:#64748b; font-size:12px;">-> อ.${item.amphoe} จ.${item.province}</span>
+                <strong>${sub}</strong> 
+                <span style="color:#64748b; font-size:12px;">-> อ./เขต ${dist} จ.${prov}</span>
                 ${isBorder ? '<span class="badge badge-orange" style="margin-left:6px;"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : ''}
               `;
 
