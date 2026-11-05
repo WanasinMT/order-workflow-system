@@ -211,7 +211,7 @@
           <span class="stat-title">คำสั่งซื้อทั้งหมด</span>
           <span class="stat-value" id="stat-total">0</span>
         </div>
-        <div class="stat-icon bg-blue"><i class="fa-solid fa-boxes-stack"></i></div>
+        <div class="stat-icon bg-blue"><i class="fa-solid fa-clipboard-list"></i></div>
       </div>
       <div class="stat-card">
         <div class="stat-info">
@@ -775,6 +775,51 @@
       else if (role === 'ALL') document.getElementById('section-all').classList.remove('hidden');
 
       window.renderApp();
+    }
+
+    
+    function getGPSLocation() {
+      if (!navigator.geolocation) {
+        alert("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง GPS");
+        return;
+      }
+      
+      const btn = event.target;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังดึงพิกัด GPS...';
+      btn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          document.getElementById('custLat').value = lat;
+          document.getElementById('custLng').value = lng;
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          alert(`ดึงพิกัดสำเร็จ! ละติจูด: ${lat}, ลองจิจูด: ${lng}`);
+        },
+        (error) => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          let errorMsg = "ไม่สามารถดึงพิกัดได้: ";
+          switch(errorMsg + error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg += "ผู้ใช้ปฏิเสธการอนุญาตเข้าถึงตำแหน่ง (กรุณาอนุญาตการใช้งาน Location ในเบราว์เซอร์)";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg += "ไม่พบข้อมูลตำแหน่งอุปกรณ์";
+              break;
+            case error.TIMEOUT:
+              errorMsg += "หมดเวลาในการค้นหาตำแหน่ง";
+              break;
+            default:
+              errorMsg += error.message;
+          }
+          alert(errorMsg + "\n*คำแนะนำ: ตรวจสอบว่าเปิด GPS บนอุปกรณ์แล้ว หรือใช้งานผ่าน HTTPS / localhost");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     }
 
     window.renderApp = function() {
