@@ -556,11 +556,33 @@
 
     function openImageModal(imgSrc, caption = "ภาพถ่ายหน้างาน") {
       const modal = document.getElementById('imageModal');
-      const modalImg = document.getElementById('modalImage');
-      const captionDiv = document.getElementById('modalImageCaption');
+      const modalContent = modal.querySelector('.image-modal-content');
+      modalContent.innerHTML = `
+        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+        <img id="modalImage" src="${imgSrc}" alt="Full Size Image" />
+        <div id="modalImageCaption" style="text-align:center; margin-top:10px; color:#fff; font-weight:500;">${caption}</div>
+      `;
       modal.classList.remove('hidden');
-      modalImg.src = imgSrc;
-      captionDiv.innerText = caption;
+    }
+
+    // ฟังก์ชันแสดงรูปภาพทั้งหมดใน Order แบบแกลเลอรี
+    function openAllImagesModal(imgList, orderId) {
+      const modal = document.getElementById('imageModal');
+      const modalContent = modal.querySelector('.image-modal-content');
+      
+      modalContent.innerHTML = `
+        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+        <h3 style="color:#fff; text-align:center; margin-bottom:15px; font-size:16px;">ภาพถ่ายหน้างาน Order: ${orderId} (${imgList.length} รูป)</h3>
+        <div style="display: flex; flex-direction: column; gap: 15px; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
+          ${imgList.map((src, idx) => `
+            <div style="text-align: center;">
+              <img src="${src}" style="max-width: 100%; max-height: 500px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); object-fit: contain;" />
+              <div style="color: #cbd5e1; font-size: 13px; margin-top: 5px;">รูปที่ ${idx + 1} จาก ${imgList.length}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      modal.classList.remove('hidden');
     }
 
     function closeImageModal() {
@@ -890,7 +912,9 @@
         let imgTag = '';
         const imgList = Array.isArray(order.imageUrls) ? order.imageUrls : (order.imageUrl ? [order.imageUrl] : []);
         if (imgList.length > 0) {
-          imgTag = `<span style="color:var(--primary-color); font-size:12px;"><i class="fa-solid fa-image"></i> ${imgList.length} รูป</span>`;
+          imgTag = `<span style="color:var(--primary-color); font-size:12px; cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); openAllImagesModal(${JSON.stringify(imgList).replace(/"/g, '&quot;')}, '${order.id}')">
+                      <i class="fa-solid fa-image"></i> ดู ${imgList.length} รูป
+                    </span>`;
         } else {
           imgTag = `<span style="color:var(--text-muted); font-size:11px;">ไม่มีรูป</span>`;
         }
