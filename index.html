@@ -70,7 +70,6 @@
                 return;
               }
             } else {
-              // กรณีที่ถูกลบข้อมูลออกจาก Firestore ไปแล้ว แต่ยังมี Session ค้างอยู่
               alert("❌ บัญชีของคุณไม่พบข้อมูลในระบบ หรือถูกปฏิเสธสิทธิ์การใช้งาน");
               await signOut(auth);
               return;
@@ -772,13 +771,25 @@
         alert("เบราว์เซอร์ของคุณไม่รองรับ GPS");
         return;
       }
+      
+      const btn = event.target.closest('button');
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-crosshairs fa-spin" style="color:var(--primary-color);"></i> กำลังดึงพิกัด GPS...';
+      btn.disabled = true;
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           document.getElementById('custLat').value = position.coords.latitude.toFixed(6);
           document.getElementById('custLng').value = position.coords.longitude.toFixed(6);
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
           alert("ดึงพิกัด GPS สำเร็จ!");
         },
-        (error) => { alert("ไม่สามารถดึงพิกัดได้"); },
+        (error) => {
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+          alert("ไม่สามารถดึงพิกัดได้: " + error.message);
+        },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
@@ -833,7 +844,6 @@
       alert(`อนุมัติสำเร็จ!`);
     }
 
-    // ⭐ ปุ่มปฏิเสธ: ทำการลบข้อมูล Document ทิ้งทันที
     async function rejectAdminUser(targetUid, userName) {
       if (!confirm(`คุณต้องการปฏิเสธและลบคำขอสิทธิ์ของ "${userName}" ออกจากระบบใช่หรือไม่?`)) return;
       try {
@@ -1024,7 +1034,7 @@
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
       const timeNow = getBangkokTimeString();
-      const newLogs = [...(order.orders || []), { time: timeNow, role: "TECHNICIAN", text: isSuccess ? "ติดตั้งสำเร็จ" : "ปฏิเสธงาน" }];
+      const newLogs = [...(order.logs || []), { time: timeNow, role: "TECHNICIAN", text: isSuccess ? "ติดตั้งสำเร็จ" : "ปฏิเสธงาน" }];
       if (window.db && window.fs) {
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), { status: isSuccess ? "INSTALLED_SUCCESS" : "REJECTED_LMR_SOA", logs: newLogs });
       }
