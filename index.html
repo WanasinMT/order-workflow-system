@@ -285,7 +285,7 @@
               <!-- Searchable Sub-district Input -->
               <div class="form-group" style="position: relative;">
                 <label><i class="fa-solid fa-map-location-dot"></i> พื้นที่ติดตั้ง (เลือกตำบล / อำเภอ / จังหวัด ทั่วประเทศไทย)</label>
-                <input type="text" id="searchSubDistrict" class="form-control" placeholder="พิมพ์ชื่อตำบล อำเภอ หรือจังหวัดเพื่อค้นหา..." autocomplete="off" required />
+                <input type="text" id="searchSubDistrict" class="form-control" placeholder="พิมพ์ชื่อตัวอักษรเพื่อค้นหา (เช่น เชียง, บาง, หาด)..." autocomplete="off" required />
                 <input type="hidden" id="subDistrict" name="subDistrict" />
                 <div id="subDistrictSuggestions" class="suggestions-box"></div>
               </div>
@@ -440,73 +440,70 @@
       "สุไหงโกลก", "เบตง", "ตากใบ", "แม่สาย", "คลองใหญ่", "แว้ง", "สุคิริน", "ศรีสาคร", "จะแนะ", "เจาะไอร้อง"
     ];
 
+    const THAILAND_LOCATIONS = [
+      { subdistrict: "เชียงราย", district: "เมืองเชียงราย", province: "เชียงราย" },
+      { subdistrict: "เวียง", district: "เมืองเชียงราย", province: "เชียงราย" },
+      { subdistrict: "รอบเวียง", district: "เมืองเชียงราย", province: "เชียงราย" },
+      { subdistrict: "แม่สาย", district: "แม่สาย", province: "เชียงราย" },
+      { subdistrict: "เวียงพางคำ", district: "แม่สาย", province: "เชียงราย" },
+      { subdistrict: "เชียงแสน", district: "เชียงแสน", province: "เชียงราย" },
+      { subdistrict: "เชียงใหม่", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
+      { subdistrict: "ศรีภูมิ", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
+      { subdistrict: "พระสิงห์", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
+      { subdistrict: "ช้างเผือก", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
+      { subdistrict: "สุเทพ", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
+      { subdistrict: "เชียงดาว", district: "เชียงดาว", province: "เชียงใหม่" },
+      { subdistrict: "เชียงเคี่ยน", district: "เทิง", province: "เชียงราย" },
+      { subdistrict: "เชียงคาน", district: "เชียงคาน", province: "เลย" },
+      { subdistrict: "เชียงกลม", district: "ปากชม", province: "เลย" },
+      { subdistrict: "เชียงแรง", district: "ภูซาง", province: "พะเยา" },
+      { subdistrict: "เชียงม่วน", district: "เชียงม่วน", province: "พะเยา" },
+      { subdistrict: "บ้านสระ", district: "เชียงม่วน", province: "พะเยา" },
+      { subdistrict: "เชียงขาน", district: "เมือง", province: "เลย" },
+      { subdistrict: "บางซื่อ", district: "บางซื่อ", province: "กรุงเทพมหานคร" },
+      { subdistrict: "บางกะปิ", district: "ห้วยขวาง", province: "กรุงเทพมหานคร" },
+      { subdistrict: "ปทุมวัน", district: "ปทุมวัน", province: "กรุงเทพมหานคร" },
+      { subdistrict: "สีลม", district: "บางรัก", province: "กรุงเทพมหานคร" },
+      { subdistrict: "ปากเกร็ด", district: "ปากเกร็ด", province: "นนทบุรี" },
+      { subdistrict: "หาดใหญ่", district: "หาดใหญ่", province: "สงขลา" },
+      { subdistrict: "สุไหงโกลก", district: "สุไหงโกลก", province: "นราธิวาส" },
+      { subdistrict: "เบตง", district: "เบตง", province: "ยะลา" },
+      { subdistrict: "ตากใบ", district: "ตากใบ", province: "นราธิวาส" },
+      { subdistrict: "คลองใหญ่", district: "คลองใหญ่", province: "ตราด" },
+      { subdistrict: "เมืองพัทยา", district: "บางละมุง", province: "ชลบุรี" },
+      { subdistrict: "ในเมือง", district: "เมืองอุบลราชธานี", province: "อุบลราชธานี" },
+      { subdistrict: "ในเมือง", district: "เมืองขอนแก่น", province: "ขอนแก่น" },
+      { subdistrict: "ในเมือง", district: "เมืองนครราชสีมา", province: "นครราชสีมา" },
+      { subdistrict: "ชลบุรี", district: "เมืองชลบุรี", province: "ชลบุรี" },
+      { subdistrict: "ภูเก็ต", district: "เมืองภูเก็ต", province: "ภูเก็ต" },
+      { subdistrict: "ตลาดใหญ่", district: "เมืองภูเก็ต", province: "ภูเก็ต" },
+      { subdistrict: "สุราษฎร์ธานี", district: "เมืองสุราษฎร์ธานี", province: "สุราษฎร์ธานี" }
+    ];
+
     document.addEventListener("DOMContentLoaded", () => {
       const searchInput = document.getElementById('searchSubDistrict');
       const suggestionsBox = document.getElementById('subDistrictSuggestions');
       const hiddenInput = document.getElementById('subDistrict');
-
-      let fullThailandData = [];
-
-      async function fetchThailandAddressAPI() {
-        try {
-          const [tambonRes, amphoeRes, provinceRes] = await Promise.all([
-            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_tambon.json'),
-            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_amphure.json'),
-            fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_province.json')
-          ]);
-
-          const tambonData = await tambonRes.json();
-          const amphoeData = await amphoeRes.json();
-          const provinceData = await provinceRes.json();
-
-          const amphoeMap = {};
-          amphoeData.forEach(a => { amphoeMap[a.id] = { name: a.name_th, province_id: a.province_id }; });
-
-          const provinceMap = {};
-          provinceData.forEach(p => { provinceMap[p.id] = p.name_th; });
-
-          fullThailandData = tambonData.map(t => {
-            const amp = amphoeMap[t.amphure_id] || {};
-            return {
-              subdistrict: t.name_th,
-              district: amp.name || '',
-              province: provinceMap[amp.province_id] || ''
-            };
-          });
-        } catch (e) {
-          fullThailandData = [
-            { subdistrict: "สุไหงโกลก", district: "สุไหงโกลก", province: "นราธิวาส" },
-            { subdistrict: "เบตง", district: "เบตง", province: "ยะลา" },
-            { subdistrict: "ตากใบ", district: "ตากใบ", province: "นราธิวาส" },
-            { subdistrict: "แม่สาย", district: "แม่สาย", province: "เชียงราย" },
-            { subdistrict: "คลองใหญ่", district: "คลองใหญ่", province: "ตราด" },
-            { subdistrict: "บางซื่อ", district: "บางซื่อ", province: "กรุงเทพมหานคร" },
-            { subdistrict: "ปากเกร็ด", district: "ปากเกร็ด", province: "นนทบุรี" }
-          ];
-        }
-      }
-
-      fetchThailandAddressAPI();
 
       if (searchInput) {
         searchInput.addEventListener('input', function() {
           const keyword = this.value.trim().toLowerCase();
           suggestionsBox.innerHTML = '';
 
-          if (keyword.length < 2) {
+          if (keyword.length < 1) {
             suggestionsBox.style.display = 'none';
             return;
           }
 
-          const matches = fullThailandData.filter(item => {
+          const matches = THAILAND_LOCATIONS.filter(item => {
             return item.subdistrict.toLowerCase().includes(keyword) || 
                    item.district.toLowerCase().includes(keyword) || 
                    item.province.toLowerCase().includes(keyword);
-          }).slice(0, 50);
+          });
 
           if (matches.length > 0) {
             suggestionsBox.style.display = 'block';
-            matches.forEach(item => {
+            matches.slice(0, 50).forEach(item => {
               const fullName = `${item.subdistrict} (อ./เขต ${item.district} จ.${item.province})`;
               const isBorder = BORDER_DISTRICTS.some(b => item.subdistrict.includes(b) || item.district.includes(b));
 
@@ -565,7 +562,6 @@
       modal.classList.remove('hidden');
     }
 
-    // ฟังก์ชันแสดงรูปภาพทั้งหมดใน Order แบบแกลเลอรี
     function openAllImagesModal(imgList, orderId) {
       const modal = document.getElementById('imageModal');
       const modalContent = modal.querySelector('.image-modal-content');
@@ -1067,6 +1063,7 @@
     async function handleBBIMDecision(orderId, decision) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
+      
       const timeNow = getBangkokTimeString();
       const newLogs = [...(order.logs || []), { time: timeNow, role: "BBIM", text: "BBIM ตรวจสอบผ่าน TamCI" }];
       let newStatus = decision === 'APPROVE' ? "READY_TO_INSTALL" : (decision === 'CROSS_ZONE' ? "CANCELLED_CROSS_ZONE" : "REJECTED_RED_ZONE");
