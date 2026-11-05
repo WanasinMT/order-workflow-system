@@ -65,12 +65,16 @@
               window.currentUserProfile = userSnap.data();
               
               if (window.currentUserProfile.status === 'PENDING') {
-                alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์ Admin จาก Admin ปัจจุบัน กรุณารอการอนุมัติ");
+                alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์จาก Admin ปัจจุบัน กรุณารอการอนุมัติ");
+                await signOut(auth);
+                return;
+              } else if (window.currentUserProfile.status === 'REJECTED') {
+                alert("❌ บัญชีของคุณถูกปฏิเสธสิทธิ์การใช้งานจาก Admin");
                 await signOut(auth);
                 return;
               }
             } else {
-              alert("❌ บัญชีของคุณไม่พบข้อมูลในระบบ หรือถูกปฏิเสธสิทธิ์การใช้งาน");
+              alert("❌ บัญชีของคุณไม่พบข้อมูลในระบบ");
               await signOut(auth);
               return;
             }
@@ -164,6 +168,40 @@
     </div>
   </div>
 
+  <!-- LOGOUT CONFIRMATION MODAL -->
+  <div id="logoutModal" class="image-modal hidden" style="background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
+    <div class="login-box" style="background: #fff; padding: 25px; border-radius: 12px; width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+      <div style="font-size: 40px; color: #f59e0b; margin-bottom: 12px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 style="margin-bottom: 8px; font-size: 18px; color: #1e293b;">ยืนยันการออกจากระบบ</h3>
+      <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีนี้?</p>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()" style="flex: 1;">ยกเลิก</button>
+        <button type="button" class="btn btn-danger" onclick="confirmLogout()" style="flex: 1; background: #ef4444; color: #fff; border: none; border-radius: 6px; padding: 10px; cursor: pointer;">ออกจากระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER REVIEW CONFIRMATION MODAL -->
+  <div id="reviewOrderModal" class="image-modal hidden" style="background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
+    <div style="background: #fff; padding: 25px; border-radius: 12px; width: 480px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 15px;">
+        <h3 style="font-size: 18px; color: #1e293b; margin: 0;"><i class="fa-solid fa-clipboard-check" style="color: var(--primary-color);"></i> ตรวจสอบข้อมูลก่อนลงทะเบียน</h3>
+        <span onclick="closeReviewModal()" style="font-size: 22px; cursor: pointer; color: #64748b;">&times;</span>
+      </div>
+      
+      <div id="reviewOrderContent" style="font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+        <!-- ข้อมูลจะถูกดึงมาเติมที่นี่ด้วย JavaScript -->
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeReviewModal()" style="flex: 1;">กลับไปแก้ไข</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAndSaveOrder()" style="flex: 1; background: #10b981; border: none;">ยืนยันและบันทึก</button>
+      </div>
+    </div>
+  </div>
+
   <!-- IMAGE LIGHTBOX / MODAL FOR LARGE VIEW -->
   <div id="imageModal" class="image-modal hidden" onclick="closeImageModal()">
     <div class="image-modal-content" onclick="event.stopPropagation()">
@@ -209,7 +247,7 @@
           <span class="user-fullname" id="currentUserName">ผู้ใช้งาน</span>
           <span class="user-role-badge" id="currentUserRoleTag">Role</span>
         </div>
-        <button class="btn btn-sm btn-logout" onclick="handleLogout()">
+        <button class="btn btn-sm btn-logout" onclick="openLogoutModal()">
           <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
         </button>
       </div>
@@ -314,18 +352,20 @@
               <div class="form-group">
                 <label><i class="fa-solid fa-camera"></i> ถ่ายภาพสถานที่ / หน้างาน (เปิดกล้องถ่ายรูป)</label>
                 <input type="file" id="custImageFile" class="form-control" accept="image/*" multiple onchange="previewSelectedImages(event)" />
-                <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">* สามารถเลือก/ถ่ายภาพได้สูงสุด 5 ภาพ</small>
+                <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">* สามารถเลือก/ถ่ายภาพได้สูงสุด 5 ภาพ[cite: 3]</small>
                 <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
                   <div id="imagePreviewList" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
                 </div>
               </div>
 
+              <!-- Support Box: อธิบายเว็บสั้นๆ -->
               <div class="support-box">
-                <h4><i class="fa-solid fa-circle-info"></i> ข้อมูลช่วยเหลือการดำเนินงาน:</h4>
-                <ul>
-                  <li><strong>Manual Mode:</strong> ยกเลิกระบบรันอัตโนมัติเบื้องหลัง ให้กดปุ่มดำเนินการแต่ละขั้นตอนด้วยตนเอง</li>
-                  <li><strong>TamCI:</strong> ตรวจสอบพิกัดพื้นที่</li>
-                  <li><strong>SmartMap:</strong> ตรวจสอบพิกัดความถูกต้องบนแผนที่</li>
+                <h4><i class="fa-solid fa-circle-info"></i> เกี่ยวกับระบบ Order Workflow:</h4>
+                <ul style="padding-left: 18px; margin-top: 6px; font-size: 13px;">
+                  <li><strong>ฝ่ายขาย (Sale):</strong> ลงทะเบียนคำสั่งซื้อใหม่ พร้อมแนบพิกัด GPS[cite: 3], ค้นหาตำบลทั่วไทย[cite: 3] และถ่ายภาพหน้างานได้สูงสุด 5 ภาพ[cite: 3] (มองเห็นเฉพาะ Order ของตนเอง)[cite: 4, 8]</li>
+                  <li><strong>ช่างสนาม (Technician):</strong> กดรับงาน ตรวจสอบพื้นที่ และบันทึกผลการติดตั้ง[cite: 3]</li>
+                  <li><strong>ทีมสนับสนุน (BBIM):</strong> ตรวจสอบพิกัด TamCI, พื้นที่เสี่ยงชายแดน 72 ตำบล[cite: 3], ขายข้ามโซน และ Red Zone[cite: 3]</li>
+                  <li><strong>ผู้ดูแลระบบ (Admin):</strong> ดูภาพรวมทุกขั้นตอน และอนุมัติสิทธิ์การเข้าใช้งานของผู้ใช้ใหม่[cite: 3]</li>
                 </ul>
               </div>
 
@@ -338,30 +378,42 @@
           <!-- TECHNICIAN PANEL -->
           <div id="section-technician" class="role-section hidden">
             <h3 class="section-title"><i class="fa-solid fa-helmet-safety"></i> 2. ดำเนินการโดยทีมช่างสนาม (Technician Workstation)</h3>
-            <p class="text-muted">กดรับงาน ตรวจสอบธงพื้นที่ และบันทึกผลการติดตั้งด้วยตนเอง</p>
+            <p class="text-muted">กดรับงาน ตรวจสอบธงพื้นที่ และบันทึกผลการติดตั้งด้วยตนเอง[cite: 3]</p>
             <div id="tech-action-container"></div>
           </div>
 
           <!-- BBIM PANEL -->
           <div id="section-bbim" class="role-section hidden">
             <h3 class="section-title"><i class="fa-solid fa-shield-halved"></i> 3. การตรวจสอบโดยทีมสนับสนุน (BBIM Verification)</h3>
-            <p class="text-muted">ตรวจสอบคำขอ TamCI, การขายข้ามโซน (Cross Zone) และอนุมัติ/ปฏิเสธพื้นที่ Red Zone ด้วยตนเอง</p>
+            <p class="text-muted">ตรวจสอบคำขอ TamCI, การขายข้ามโซน (Cross Zone) และอนุมัติ/ปฏิเสธพื้นที่ Red Zone ด้วยตนเอง[cite: 3]</p>
             <div id="bbim-action-container"></div>
           </div>
 
           <!-- ALL VIEW PANEL (ADMIN CONTROL PANEL) -->
           <div id="section-all" class="role-section hidden">
             <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Master Command & Admin Approval Panel</h3>
-            <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบ (Admin) สามารถอนุมัติสิทธิ์ให้ Admin ผู้สมัครใหม่ และดูภาพรวมระบบได้ที่นี่</p>
+            <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบ (Admin) สามารถอนุมัติสิทธิ์ให้ผู้สมัครใหม่ และดูภาพรวมระบบได้ที่นี่[cite: 3]</p>
             
+            <!-- 1. รายการที่รออนุมัติ -->
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
               <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-user-clock"></i> รายการผู้ขอสิทธิ์ Admin ที่รออนุมัติ (Pending Admin Requests)
+                <i class="fa-solid fa-user-clock"></i> รายการผู้ขอสิทธิ์ที่รออนุมัติ (Pending Approval Requests)
               </h4>
               <div id="pendingAdminsList">
-                <p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการ Admin ที่รออนุมัติในขณะนี้</p>
+                <p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการผู้ขอสิทธิ์ที่รออนุมัติในขณะนี้</p>
               </div>
             </div>
+
+            <!-- 2. ประวัติการอนุมัติและปฏิเสธ -->
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
+                <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการดำเนินการอนุมัติและปฏิเสธ (Approval History)
+              </h4>
+              <div id="adminHistoryList" style="max-height: 250px; overflow-y: auto;">
+                <p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>
+              </div>
+            </div>
+
           </div>
 
         </div>
@@ -417,6 +469,7 @@
     let selectedOrderId = '';
     let currentBase64Images = [];
     let isSelectedBorderArea = false;
+    let pendingOrderData = null; // เก็บข้อมูลชั่วคราวก่อนยืนยันลงทะเบียน
 
     function getBangkokTimeString() {
       const now = new Date();
@@ -585,12 +638,27 @@
       document.getElementById('imageModal').classList.add('hidden');
     }
 
+    function openLogoutModal() {
+      document.getElementById('logoutModal').classList.remove('hidden');
+    }
+
+    function closeLogoutModal() {
+      document.getElementById('logoutModal').classList.add('hidden');
+    }
+
+    async function confirmLogout() {
+      closeLogoutModal();
+      if (window.auth && window.fbAuth) {
+        await window.fbAuth.signOut(window.auth);
+      }
+    }
+
     async function previewSelectedImages(event) {
       const newFiles = Array.from(event.target.files);
       if (newFiles.length === 0) return;
 
       if (currentBase64Images.length + newFiles.length > 5) {
-        alert(`เลือกรูปภาพได้สูงสุด 5 ภาพ`);
+        alert(`เลือกรูปภาพได้สูงสุด 5 ภาพ[cite: 3]`);
         event.target.value = "";
         return;
       }
@@ -704,7 +772,11 @@
           if (userSnap.exists()) {
             const profile = userSnap.data();
             if (profile.status === 'PENDING') {
-              alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์ Admin จาก Admin ปัจจุบันก่อนเข้าใช้งาน");
+              alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์จาก Admin ปัจจุบันก่อนเข้าใช้งาน");
+              await window.fbAuth.signOut(window.auth);
+              return;
+            } else if (profile.status === 'REJECTED') {
+              alert("❌ บัญชีของคุณถูกปฏิเสธสิทธิ์การใช้งานจาก Admin");
               await window.fbAuth.signOut(window.auth);
               return;
             }
@@ -733,7 +805,7 @@
             createdAt: window.fs.serverTimestamp()
           });
           if (initialStatus === 'PENDING') {
-            alert("สมัครสมาชิกสำเร็จ! บัญชี Admin ของคุณจะเข้าใช้งานได้หลังจากได้รับอนุมัติจาก Admin ปัจจุบันเรียบร้อยแล้ว");
+            alert("สมัครสมาชิกสำเร็จ! บัญชีของคุณจะเข้าใช้งานได้หลังจากได้รับอนุมัติจาก Admin เรียบร้อยแล้ว");
             await window.fbAuth.signOut(window.auth);
           } else {
             alert("สมัครสมาชิกสำเร็จ!");
@@ -741,12 +813,6 @@
         } catch (err) {
           alert("สมัครสมาชิกไม่สำเร็จ: " + err.message);
         }
-      }
-    }
-
-    async function handleLogout() {
-      if (window.auth && window.fbAuth) {
-        await window.fbAuth.signOut(window.auth);
       }
     }
 
@@ -817,13 +883,19 @@
       const q = window.fs.query(window.fs.collection(window.db, "users"));
       window.fs.onSnapshot(q, (snapshot) => {
         const pendingUsers = [];
+        const processedUsers = [];
+
         snapshot.forEach((docSnap) => {
           const u = { id: docSnap.id, ...docSnap.data() };
-          if (u.role === 'ADMIN' && u.status === 'PENDING') {
+          if (u.status === 'PENDING') {
             pendingUsers.push(u);
+          } else if (u.status === 'APPROVED' || u.status === 'REJECTED') {
+            processedUsers.push(u);
           }
         });
+
         renderPendingAdminsUI(pendingUsers);
+        renderAdminHistoryUI(processedUsers);
       });
     }
 
@@ -831,14 +903,14 @@
       const container = document.getElementById('pendingAdminsList');
       if (!container) return;
       if (pendingUsers.length === 0) {
-        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการ Admin ที่รออนุมัติในขณะนี้</p>';
+        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการที่รออนุมัติในขณะนี้</p>';
         return;
       }
       container.innerHTML = pendingUsers.map(u => `
         <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
           <div>
             <strong style="font-size: 13px; display: block;">${u.name || u.email}</strong>
-            <small style="color: var(--text-muted); font-size: 11px;">อีเมล: ${u.email} | ขอสิทธิ์: <span class="badge badge-purple">ADMIN</span></small>
+            <small style="color: var(--text-muted); font-size: 11px;">อีเมล: ${u.email} | ขอสิทธิ์: <span class="badge badge-purple">${u.role || 'USER'}</span></small>
           </div>
           <div style="display: flex; gap: 6px;">
             <button class="btn btn-sm btn-success" onclick="approveAdminUser('${u.uid}', '${u.name || u.email}')">
@@ -852,23 +924,60 @@
       `).join('');
     }
 
+    function renderAdminHistoryUI(processedUsers) {
+      const container = document.getElementById('adminHistoryList');
+      if (!container) return;
+      if (processedUsers.length === 0) {
+        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>';
+        return;
+      }
+
+      container.innerHTML = processedUsers.map(u => {
+        const isApproved = u.status === 'APPROVED';
+        const statusBadge = isApproved 
+          ? '<span class="badge badge-green"><i class="fa-solid fa-check-circle"></i> อนุมัติแล้ว</span>'
+          : '<span class="badge badge-red"><i class="fa-solid fa-times-circle"></i> ปฏิเสธแล้ว</span>';
+        
+        const actionBy = isApproved ? (u.approvedBy || 'Admin') : (u.rejectedBy || 'Admin');
+        const actionTime = isApproved ? (u.approvedAt || '-') : (u.rejectedAt || '-');
+        
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
+            <div>
+              <strong style="font-size: 13px; display: block;">${u.name || u.email} <small style="color:#64748b; font-weight:normal;">(${u.role || 'USER'})</small></strong>
+              <small style="color: var(--text-muted); font-size: 11px;">อีเมล: ${u.email} | ดำเนินการโดย: ${actionBy} (${actionTime})</small>
+            </div>
+            <div>
+              ${statusBadge}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     async function approveAdminUser(targetUid, userName) {
-      if (!confirm(`คุณต้องการอนุมัติสิทธิ์ Admin ให้แก่ "${userName}" ใช่หรือไม่?`)) return;
+      if (!confirm(`คุณต้องการอนุมัติสิทธิ์ให้แก่ "${userName}" ใช่หรือไม่?`)) return;
+      const currentAdmin = (window.currentUserProfile && window.currentUserProfile.email) ? window.currentUserProfile.email : 'Admin';
       await window.fs.updateDoc(window.fs.doc(window.db, "users", targetUid), {
         status: 'APPROVED',
-        approvedBy: window.currentUserProfile.email,
-        approvedAt: window.fs.serverTimestamp()
+        approvedBy: currentAdmin,
+        approvedAt: getBangkokTimeString()
       });
-      alert(`อนุมัติสำเร็จ!`);
+      alert(`อนุมัติสิทธิ์แก่ ${userName} สำเร็จ!`);
     }
 
     async function rejectAdminUser(targetUid, userName) {
-      if (!confirm(`คุณต้องการปฏิเสธและลบคำขอสิทธิ์ของ "${userName}" ออกจากระบบใช่หรือไม่?`)) return;
+      if (!confirm(`คุณต้องการปฏิเสธคำขอสิทธิ์ของ "${userName}" ใช่หรือไม่?`)) return;
+      const currentAdmin = (window.currentUserProfile && window.currentUserProfile.email) ? window.currentUserProfile.email : 'Admin';
       try {
-        await window.fs.deleteDoc(window.fs.doc(window.db, "users", targetUid));
-        alert(`ปฏิเสธและลบข้อมูลคำขอของ ${userName} เรียบร้อยแล้ว`);
+        await window.fs.updateDoc(window.fs.doc(window.db, "users", targetUid), {
+          status: 'REJECTED',
+          rejectedBy: currentAdmin,
+          rejectedAt: getBangkokTimeString()
+        });
+        alert(`ปฏิเสธสิทธิ์ของ ${userName} เรียบร้อยแล้ว`);
       } catch (err) {
-        alert("เกิดข้อผิดพลาดในการลบข้อมูล: " + err.message);
+        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + err.message);
       }
     }
 
@@ -893,7 +1002,7 @@
       tbody.innerHTML = '';
       let list = window.orders || [];
 
-      // ⭐ กรองข้อมูลให้ Sale เห็นเฉพาะรายการของตัวเอง
+      // กรองข้อมูลให้ Sale เห็นเฉพาะรายการของตัวเอง[cite: 4, 8]
       if (window.currentUserProfile && window.currentUserProfile.role === 'SALE' && window.auth && window.auth.currentUser) {
         list = list.filter(o => o.userId === window.auth.currentUser.uid || o.createdBy === window.auth.currentUser.email);
       }
@@ -1000,17 +1109,52 @@
       });
     }
 
-    async function handleRegisterOrder(e) {
+    // ⭐ เมื่อกดปุ่ม "ลงทะเบียนคำสั่งซื้อ" ให้เปิด Modal Review ขึ้นมา
+    function handleRegisterOrder(e) {
       e.preventDefault();
-      try {
-        const name = document.getElementById('custName').value;
-        const internetNo = document.getElementById('internetNo').value;
-        const subDist = document.getElementById('subDistrict').value || document.getElementById('searchSubDistrict').value;
-        const addr = document.getElementById('custAddress').value;
-        const lat = document.getElementById('custLat').value;
-        const lng = document.getElementById('custLng').value;
+      
+      const name = document.getElementById('custName').value;
+      const internetNo = document.getElementById('internetNo').value;
+      const subDist = document.getElementById('subDistrict').value || document.getElementById('searchSubDistrict').value;
+      const addr = document.getElementById('custAddress').value;
+      const lat = document.getElementById('custLat').value || '-';
+      const lng = document.getElementById('custLng').value || '-';
+      const isBorder = (typeof isSelectedBorderArea !== 'undefined' ? isSelectedBorderArea : false) || BORDER_DISTRICTS.some(b => subDist.includes(b));
 
-        const isBorder = (typeof isSelectedBorderArea !== 'undefined' ? isSelectedBorderArea : false) || BORDER_DISTRICTS.some(b => subDist.includes(b));
+      pendingOrderData = {
+        customer: name,
+        internetNo: internetNo,
+        subDistrict: subDist,
+        address: addr,
+        lat: lat,
+        lng: lng,
+        imageUrls: currentBase64Images.length > 0 ? [...currentBase64Images] : [],
+        isBorderArea: isBorder
+      };
+
+      const reviewContainer = document.getElementById('reviewOrderContent');
+      reviewContainer.innerHTML = `
+        <div><strong>ชื่อ-นามสกุล ลูกค้า:</strong> ${name}</div>
+        <div><strong>หมายเลขอินเทอร์เน็ต:</strong> <span style="color: var(--primary-color);">${internetNo}</span></div>
+        <div><strong>พื้นที่ติดตั้ง:</strong> ${subDist} ${isBorder ? '<span class="badge badge-orange"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : ''}</div>
+        <div><strong>ที่อยู่โดยละเอียด:</strong> ${addr}</div>
+        <div><strong>พิกัด GPS:</strong> Lat: ${lat}, Lng: ${lng}</div>
+        <div><strong>รูปภาพหน้างาน:</strong> ${currentBase64Images.length > 0 ? `<span style="color: var(--primary-color);"><i class="fa-solid fa-image"></i> แนบแล้ว ${currentBase64Images.length} รูป</span>` : '<span style="color: #94a3b8;">ไม่มีรูปภาพ</span>'}</div>
+      `;
+
+      document.getElementById('reviewOrderModal').classList.remove('hidden');
+    }
+
+    function closeReviewModal() {
+      document.getElementById('reviewOrderModal').classList.add('hidden');
+    }
+
+    // ⭐ กดยืนยันใน Modal แล้วบันทึกลง Firestore จริง
+    async function confirmAndSaveOrder() {
+      closeReviewModal();
+      if (!pendingOrderData) return;
+
+      try {
         const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
         const timeNow = getBangkokTimeString();
         const currentUserProfile = window.currentUserProfile || { name: 'Sale' };
@@ -1018,14 +1162,7 @@
 
         const newOrder = {
           id: newId,
-          customer: name,
-          internetNo: internetNo,
-          address: addr,
-          subDistrict: subDist,
-          lat: lat || "",
-          lng: lng || "",
-          imageUrls: currentBase64Images.length > 0 ? [...currentBase64Images] : [],
-          isBorderArea: isBorder,
+          ...pendingOrderData,
           status: "REGISTERED",
           userId: currentAuthUser ? currentAuthUser.uid : "",
           createdBy: currentAuthUser ? currentAuthUser.email : "",
@@ -1046,11 +1183,12 @@
         if (previewList) previewList.innerHTML = '';
         const previewContainer = document.getElementById('imagePreviewContainer');
         if (previewContainer) previewContainer.style.display = 'none';
+        pendingOrderData = null;
         
         alert("ลงทะเบียนคำสั่งซื้อสำเร็จ!");
         window.renderApp();
       } catch (err) {
-        console.error("Error in handleRegisterOrder:", err);
+        console.error("Error in confirmAndSaveOrder:", err);
         alert("เกิดข้อผิดพลาดในการบันทึกคำสั่งซื้อ: " + err.message);
       }
     }
