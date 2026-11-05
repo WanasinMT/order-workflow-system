@@ -306,7 +306,7 @@
                   <input type="text" id="custLng" class="form-control" placeholder="เช่น 100.5018" />
                 </div>
               </div>
-              <button type="button" class="btn btn-secondary" onclick="getGPSLocation()" style="width: 100%; margin-bottom: 12px; font-size: 13px;">
+              <button type="button" class="btn btn-secondary" onclick="getGPSLocation(event)" style="width: 100%; margin-bottom: 12px; font-size: 13px;">
                 <i class="fa-solid fa-crosshairs"></i> ดึงพิกัดปัจจุบันอัตโนมัติ (GPS)
               </button>
 
@@ -784,13 +784,13 @@
       window.renderApp();
     }
 
-    function getGPSLocation() {
+    function getGPSLocation(evt) {
       if (!navigator.geolocation) {
         alert("เบราว์เซอร์ของคุณไม่รองรับ GPS");
         return;
       }
       
-      const btn = event.target.closest('button');
+      const btn = evt ? evt.target.closest('button') : event.target.closest('button');
       const originalHTML = btn.innerHTML;
       btn.innerHTML = '<i class="fa-solid fa-crosshairs fa-spin" style="color:var(--primary-color);"></i> กำลังดึงพิกัด GPS...';
       btn.disabled = true;
@@ -891,7 +891,12 @@
     function renderTable() {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
-      const list = window.orders || [];
+      let list = window.orders || [];
+
+      // ⭐ กรองข้อมูลให้ Sale เห็นเฉพาะรายการของตัวเอง
+      if (window.currentUserProfile && window.currentUserProfile.role === 'SALE' && window.auth && window.auth.currentUser) {
+        list = list.filter(o => o.userId === window.auth.currentUser.uid || o.createdBy === window.auth.currentUser.email);
+      }
 
       if (list.length > 0 && !selectedOrderId) {
         selectedOrderId = list[0].id;
@@ -997,45 +1002,57 @@
 
     async function handleRegisterOrder(e) {
       e.preventDefault();
-      const name = document.getElementById('custName').value;
-      const internetNo = document.getElementById('internetNo').value;
-      const subDist = document.getElementById('subDistrict').value || document.getElementById('searchSubDistrict').value;
-      const addr = document.getElementById('custAddress').value;
-      const lat = document.getElementById('custLat').value;
-      const lng = document.getElementById('custLng').value;
+      try {
+        const name = document.getElementById('custName').value;
+        const internetNo = document.getElementById('internetNo').value;
+        const subDist = document.getElementById('subDistrict').value || document.getElementById('searchSubDistrict').value;
+        const addr = document.getElementById('custAddress').value;
+        const lat = document.getElementById('custLat').value;
+        const lng = document.getElementById('custLng').value;
 
-      const isBorder = isSelectedBorderArea || BORDER_DISTRICTS.some(b => subDist.includes(b));
-      const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
-      const timeNow = getBangkokTimeString();
-      const currentUser = window.currentUserProfile || { name: 'Sale' };
+        const isBorder = (typeof isSelectedBorderArea !== 'undefined' ? isSelectedBorderArea : false) || BORDER_DISTRICTS.some(b => subDist.includes(b));
+        const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
+        const timeNow = getBangkokTimeString();
+        const currentUserProfile = window.currentUserProfile || { name: 'Sale' };
+        const currentAuthUser = (window.auth && window.auth.currentUser) ? window.auth.currentUser : null;
 
-      const newOrder = {
-        id: newId,
-        customer: name,
-        internetNo: internetNo,
-        address: addr,
-        subDistrict: subDist,
-        lat: lat || "",
-        lng: lng || "",
-        imageUrls: currentBase64Images.length > 0 ? [...currentBase64Images] : [],
-        isBorderArea: isBorder,
-        status: "REGISTERED",
-        logs: [{ time: timeNow, role: "SALE", text: `ลงทะเบียนคำสั่งซื้อใหม่โดย ${currentUser.name}` }]
-      };
+        const newOrder = {
+          id: newId,
+          customer: name,
+          internetNo: internetNo,
+          address: addr,
+          subDistrict: subDist,
+          lat: lat || "",
+          lng: lng || "",
+          imageUrls: currentBase64Images.length > 0 ? [...currentBase64Images] : [],
+          isBorderArea: isBorder,
+          status: "REGISTERED",
+          userId: currentAuthUser ? currentAuthUser.uid : "",
+          createdBy: currentAuthUser ? currentAuthUser.email : "",
+          logs: [{ time: timeNow, role: "SALE", text: `ลงทะเบียนคำสั่งซื้อใหม่โดย ${currentUserProfile.name}` }]
+        };
 
-      if (window.db && window.fs) {
-        await window.fs.setDoc(window.fs.doc(window.db, "orders", newId), {
-          ...newOrder,
-          createdAt: window.fs.serverTimestamp()
-        });
+        if (window.db && window.fs) {
+          await window.fs.setDoc(window.fs.doc(window.db, "orders", newId), {
+            ...newOrder,
+            createdAt: window.fs.serverTimestamp()
+          });
+        }
+
+        selectedOrderId = newId;
+        document.getElementById('orderForm').reset();
+        currentBase64Images = [];
+        const previewList = document.getElementById('imagePreviewList');
+        if (previewList) previewList.innerHTML = '';
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        if (previewContainer) previewContainer.style.display = 'none';
+        
+        alert("ลงทะเบียนคำสั่งซื้อสำเร็จ!");
+        window.renderApp();
+      } catch (err) {
+        console.error("Error in handleRegisterOrder:", err);
+        alert("เกิดข้อผิดพลาดในการบันทึกคำสั่งซื้อ: " + err.message);
       }
-
-      selectedOrderId = newId;
-      document.getElementById('orderForm').reset();
-      currentBase64Images = [];
-      document.getElementById('imagePreviewList').innerHTML = '';
-      alert("ลงทะเบียนคำสั่งซื้อสำเร็จ!");
-      window.renderApp();
     }
 
     async function handleTechAcceptJob(orderId) {
