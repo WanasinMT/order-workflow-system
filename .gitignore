@@ -1,0 +1,16 @@
+.env
+.env.local
+*.xlsx
+*.xls
+*.csv
+exports/
+reports/
+node_modules/
+dist/
+build/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.firebase/
+*.log
