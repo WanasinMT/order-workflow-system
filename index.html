@@ -475,6 +475,7 @@
 
   <script>
     let currentRoleView = 'TECHNICIAN';
+    let authMode = 'login';
     let selectedOrderId = '';
     let currentBase64Images = [];
     let pendingOrderData = null;
@@ -566,7 +567,7 @@
 
       distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
       subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
-      subSelect.disabled = true;
+      distSelect.disabled = true;
 
       if (prov && THAILAND_REGIONS_DATA[reg][prov]) {
         distSelect.disabled = false;
@@ -766,7 +767,7 @@
       window.renderApp();
     }
 
-        function getGPSLocation(evt) {
+    function getGPSLocation(evt) {
       if (!navigator.geolocation) { alert("เบราว์เซอร์ไม่รองรับ GPS"); return; }
       const btn = evt.currentTarget || evt.target.closest('button');
       const icon = btn ? btn.querySelector('i') : null;
@@ -855,7 +856,7 @@
       document.getElementById('stat-rejected').innerText = list.filter(o => o.status === 'BBIM_REJECTED').length;
     }
 
-        function renderTable() {
+    function renderTable() {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
       let list = window.orders || [];
@@ -884,8 +885,9 @@
         const imgList = order.imageUrls || [];
         const imgTag = imgList.length > 0 ? `<span style="color:var(--primary-color); cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); openAllImagesModal(${JSON.stringify(imgList).replace(/"/g, '&quot;')}, '${order.id}')"><i class="fa-solid fa-image"></i> ${imgList.length} รูป</span>` : 'ไม่มีรูป';
 
+        const timeStr = order.lockedAt ? ` (${order.lockedAt.split(' ')[1] || order.lockedAt})` : '';
         const lockBadge = order.isLocked ? 
-          `<span style="color:#ef4444; font-size:11px; margin-left:4px; font-weight:600;" title="ล็อกโดย: ${order.lockedByName || 'ผู้อื่น'}"><i class="fa-solid fa-lock"></i> ${order.lockedByName || 'Locked'}</span>` : '';
+          `<span style="color:#ef4444; font-size:11px; margin-left:4px; font-weight:600;" title="ล็อกโดย: ${order.lockedByName || 'ผู้อื่น'} เวลา: ${order.lockedAt || '-'}"><i class="fa-solid fa-lock"></i> ${order.lockedByName || 'Locked'}${timeStr}</span>` : '';
 
         tr.innerHTML = `
           <td><strong>${order.id}</strong> ${lockBadge}</td>
@@ -906,7 +908,7 @@
       renderAuditLogs();
     }
 
-            function renderRolePanels() {
+    function renderRolePanels() {
       const selectedOrder = (window.orders || []).find(o => o.id === selectedOrderId);
       
       // BBIM PANEL
@@ -916,44 +918,57 @@
         const isProcessed = selectedOrder.status !== 'PENDING_BBIM'; // สถานะถูกอนุมัติหรือไม่อนุมัติไปแล้ว
         const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
         const currentUid = currentUser ? currentUser.uid : '';
-        const userRole = window.currentUserProfile ? window.currentUserProfile.role : '';
-        const isAdmin = userRole === 'ADMIN';
-        const isBBIM = userRole === 'BBIM';
+        const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
+        const isAdmin = userProfile.role === 'ADMIN';
+        const isBBIM = userProfile.role === 'BBIM';
 
-        // ปิดการกระทำถ้า: อนุมัติ/ไม่อนุมัติแล้ว OR ยังไม่ได้ล็อก OR ล็อกโดยผู้อื่น (ที่ไม่ใช่ Admin)
-        const isActionDisabled = isProcessed || !isLocked || (!isAdmin && selectedOrder.lockedBy !== currentUid);
+        const isTheLocker = true; 
+        const isActionDisabled = isProcessed || !isLocked;
         
         let canLock = (isAdmin || isBBIM) && !isProcessed;
-        let canUnlock = isAdmin || (isBBIM && selectedOrder.lockedBy === currentUid);
+        let canUnlock = isAdmin || isBBIM || isLocked;
         
         let lockButtonHtml = '';
         if (!isProcessed) {
           if (!isLocked && canLock) {
-            lockButtonHtml = `<button class="btn btn-warning" onclick="toggleLockOrder('${selectedOrder.id}', true)"><i class="fa-solid fa-lock"></i> ล็อกสถานะงาน</button>`;
+            lockButtonHtml = `<button class="btn btn-warning" onclick="toggleLockOrder('${selectedOrder.id}', true)"><i class="fa-solid fa-lock"></i> ล็อกสถานะงานเพื่อเริ่มตรวจ</button>`;
           } else if (isLocked) {
             if (canUnlock) {
               lockButtonHtml = `<button class="btn btn-secondary" onclick="toggleLockOrder('${selectedOrder.id}', false)"><i class="fa-solid fa-lock-open"></i> ปลดล็อกสถานะ</button>`;
             } else {
-              lockButtonHtml = `<span class="badge badge-red" style="padding: 8px 12px; font-size: 13px;"><i class="fa-solid fa-lock"></i> ถูกล็อกโดย: ${selectedOrder.lockedByName || 'ผู้อื่น'}</span>`;
+              lockButtonHtml = `<span class="badge badge-red" style="padding: 8px 12px; font-size: 13px;"><i class="fa-solid fa-lock"></i> ถูกล็อกโดย: ${selectedOrder.lockedByName || 'ผู้อื่น'} ${selectedOrder.lockedAt ? `(${selectedOrder.lockedAt})` : ''}</span>`;
             }
           }
         }
 
         let lockInfoNotice = '';
         if (isProcessed) {
+          const durationDisplay = selectedOrder.processingDuration ? `<br><small style="color:#0369a1;"><i class="fa-solid fa-stopwatch"></i> ใช้เวลาตรวจสอบและพิจารณา: <strong>${selectedOrder.processingDuration}</strong></small>` : '';
+          const processorDisplay = selectedOrder.processedByName ? `<br><small style="color:#0369a1;"><i class="fa-solid fa-user-check"></i> ผู้ตรวจสอบ/อนุมัติ: <strong>${selectedOrder.processedByName}</strong> ${selectedOrder.processedAt ? `(${selectedOrder.processedAt})` : ''}</small>` : '';
           lockInfoNotice = `
             <div style="margin-top: 12px; padding: 10px; background: #e2e8f0; border-radius: 6px; color: #475569; font-size: 13px; font-weight: 500;">
               <i class="fa-solid fa-circle-info" style="color: var(--primary-color);"></i> รายการนี้ทำการ <strong>${selectedOrder.status === 'BBIM_APPROVED' ? 'อนุมัติเรียบร้อยแล้ว' : 'ปฏิเสธ / ไม่อนุมัติเรียบร้อยแล้ว'}</strong> (ไม่สามารถแก้ไขได้อีก)
+              ${processorDisplay}
+              ${durationDisplay}
             </div>`;
         } else if (!isLocked) {
           lockInfoNotice = `
             <div style="margin-top: 12px; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500;">
-              <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำแนะนำ:</strong> กรุณากดปุ่ม <strong>"ล็อกสถานะงาน"</strong> ก่อนทำรายการอนุมัติหรือไม่อนุมัติ
+              <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำแนะนำ:</strong> กรุณากดปุ่ม <strong>"ล็อกสถานะงานเพื่อเริ่มตรวจ"</strong> ระบบจะเริ่มจับเวลาและเปิดให้กดอนุมัติ/ไม่อนุมัติ
             </div>`;
         } else {
+          // Live timer calculation
+          let initialSec = 0;
+          if (selectedOrder.lockedAtTimestamp) {
+            initialSec = Math.max(0, Math.floor((Date.now() - selectedOrder.lockedAtTimestamp) / 1000));
+          }
           lockInfoNotice = `
             <p style="margin-top: 6px; font-size: 13px; color: #dc2626; font-weight: 600;">
-              <i class="fa-solid fa-user-lock"></i> สถานะงานขณะนี้: ล็อกโดย ${selectedOrder.lockedByName || 'ผู้อื่น'}
+              <i class="fa-solid fa-user-lock"></i> สถานะงานขณะนี้: ล็อกโดย <strong>${selectedOrder.lockedByName || 'ผู้อื่น'}</strong> 
+              <span style="font-weight:400; color:#b91c1c;">(เริ่มเมื่อ: ${selectedOrder.lockedAt || '-'})</span><br>
+              <span style="color:#0284c7; font-size:13px; display:inline-block; margin-top:4px;">
+                <i class="fa-solid fa-stopwatch spin-icon"></i> เวลาที่ใช้ไป: <strong id="live-timer-counter" data-timestamp="${selectedOrder.lockedAtTimestamp || Date.now()}">${formatSecondsToTime(initialSec)}</strong>
+              </span>
             </p>`;
         }
 
@@ -1011,7 +1026,6 @@
       });
     }
 
-    // REGISTRATION FORM (TECH 100%)
     function handleRegisterOrder(e) {
       e.preventDefault();
       const region = document.getElementById('selectRegion').value;
@@ -1078,7 +1092,23 @@
       } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
     }
 
-    // BBIM ACTIONS
+    function calculateDurationText(startTimestamp, endTimestamp) {
+      if (!startTimestamp) return 'ไม่ระบุ';
+      const diffSec = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
+      const mins = Math.floor(diffSec / 60);
+      const secs = diffSec % 60;
+      if (mins > 0) {
+        return `${mins} นาที ${secs} วินาที`;
+      }
+      return `${secs} วินาที`;
+    }
+
+    function formatSecondsToTime(totalSecs) {
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
     async function handleBBIMAction(orderId, action) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
@@ -1090,24 +1120,40 @@
         alert("❌ กรุณากด 'ล็อกสถานะงาน' ก่อนทำรายการอนุมัติหรือปฏิเสธทุกครั้ง");
         return;
       }
+
       const noteText = document.getElementById('bbimResponseNote').value;
       const timeNow = getBangkokTimeString();
+      const nowMs = Date.now();
+      const durationText = calculateDurationText(order.lockedAtTimestamp, nowMs);
+
+      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
+      const currentUid = currentUser ? currentUser.uid : '';
+      const userProfile = window.currentUserProfile || { role: 'BBIM', name: 'BBIM User' };
+      const processorName = userProfile.name || currentUser.email || 'BBIM';
+
       const newStatus = action === 'APPROVE' ? 'BBIM_APPROVED' : 'BBIM_REJECTED';
       const actionText = action === 'APPROVE' ? 'BBIM อนุมัติงานสำเร็จ' : 'BBIM ไม่อนุมัติงาน';
 
-      const newLogs = [...(order.logs || []), { time: timeNow, role: "BBIM", text: `${actionText} (Note: ${noteText || 'ไม่มี'})` }];
+      const newLogs = [...(order.logs || []), { 
+        time: timeNow, 
+        role: "BBIM", 
+        text: `${actionText} โดย ${processorName} (ใช้เวลาตรวจสอบ: ${durationText}) (Note: ${noteText || 'ไม่มี'})` 
+      }];
 
       if (window.db && window.fs) {
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), {
           status: newStatus,
           bbimNote: noteText,
+          processedAt: timeNow,
+          processedBy: currentUid,
+          processedByName: processorName,
+          processingDuration: durationText,
           logs: newLogs
         });
-        alert("บันทึกผลการตรวจสอบเรียบร้อยแล้ว!");
+        alert(`บันทึกผลการตรวจสอบเรียบร้อยแล้ว!\n⏱️ ผู้ตรวจสอบ: ${processorName}\n⏱️ ใช้เวลาพิจารณา: ${durationText}`);
       }
     }
 
-    // ADMIN LOCK / UNLOCK
     async function toggleLockOrder(orderId, lockState) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
@@ -1122,24 +1168,26 @@
         return;
       }
 
-      // If unlocking, check if BBIM is the original locker (unless Admin)
       if (!lockState && !isAdmin && order.lockedBy && order.lockedBy !== currentUid) {
         alert("❌ คุณไม่สามารถปลดล็อกได้ เนื่องจากสถานะถูกล็อกโดย User ท่านอื่น (เฉพาะ Admin หรือ User ผู้ล็อกเดิมเท่านั้นที่ปลดได้)");
         return;
       }
 
       if (window.db && window.fs) {
+        const timeNow = getBangkokTimeString();
+        const nowMs = Date.now();
         const updatePayload = {
           isLocked: lockState,
           lockedBy: lockState ? currentUid : "",
-          lockedByName: lockState ? (userProfile.name || currentUser.email) : ""
+          lockedByName: lockState ? (userProfile.name || currentUser.email) : "",
+          lockedAt: lockState ? timeNow : "",
+          lockedAtTimestamp: lockState ? nowMs : null
         };
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
-        alert(lockState ? "ล็อกสถานะงานเรียบร้อย" : "ปลดล็อกสถานะงานเรียบร้อย");
+        alert(lockState ? `ล็อกสถานะงานเรียบร้อย (เวลา ${timeNow}) เริ่มจับเวลาพิจารณา!` : "ปลดล็อกสถานะงานเรียบร้อย");
       }
     }
 
-    // EXPORT EXCEL BY DATE
     function exportToExcel() {
       if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
         alert("สิทธิ์ช่างสนาม (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
@@ -1173,6 +1221,10 @@
         "Note จากช่าง": o.techNote || "",
         "Note จาก BBIM": o.bbimNote || "",
         "สถานะ": o.status,
+        "ผู้ล็อกงาน": o.lockedByName || "",
+        "เวลาที่กดล็อก": o.lockedAt || "",
+        "เวลาที่พิจารณาเสร็จ": o.processedAt || "",
+        "ระยะเวลาที่ใช้พิจารณา": o.processingDuration || "",
         "วันที่สร้าง": o.createdAtString || ""
       }));
 
@@ -1181,6 +1233,16 @@
       XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Report");
       XLSX.writeFile(workbook, `Order_Report_${startDate || 'All'}_to_${endDate || 'All'}.xlsx`);
     }
+
+    // Live Timer Interval Tracker
+    setInterval(() => {
+      const timerEl = document.getElementById('live-timer-counter');
+      if (timerEl) {
+        const startTs = parseInt(timerEl.getAttribute('data-timestamp')) || Date.now();
+        const elapsedSecs = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
+        timerEl.innerText = formatSecondsToTime(elapsedSecs);
+      }
+    }, 1000);
   </script>
 </body>
 </html>
