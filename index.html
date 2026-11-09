@@ -1087,7 +1087,7 @@
         currentBase64Images = [];
         document.getElementById('imagePreviewContainer').style.display = 'none';
         pendingOrderData = null;
-        alert("ส่งข้อมูลให้ BBIM สำเร็จ!");
+        alert("ส่งข้อมูลให้ BBIM ตรวจสอบ");
         window.renderApp();
       } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
     }
@@ -1197,7 +1197,7 @@
           logs: newLogs
         };
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
-        alert(lockState ? `ล็อกสถานะงานเรียบร้อย (เวลา ${timeNow}) เริ่มจับเวลาพิจารณา!` : "ปลดล็อกสถานะงานเรียบร้อย");
+        alert(lockState ? `ล็อกสถานะงาน (เวลา ${timeNow}) ` : "ปลดล็อกสถานะงาน");
       }
     }
 
