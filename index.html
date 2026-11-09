@@ -209,8 +209,8 @@
     <div class="logo-area">
       <i class="fa-solid fa-fire logo-icon" style="color: #f59e0b;"></i>
       <div>
-        <h1>ระบบจัดการคำสั่งซื้อ (Technician & BBIM Portal)</h1>
-        <p>Order Workflow Management System (Tech 100% Entry Mode)</p>
+        <h1>ระบบจัดการคำสั่งซื้อ (BBIM Portal)</h1>
+        <p>Order Workflow Management System</p>
       </div>
     </div>
     
@@ -219,7 +219,7 @@
         <span class="role-label"><i class="fa-solid fa-user-gear"></i> มุมมองสิทธิ์ใช้งาน:</span>
         <div class="role-buttons">
           <button class="role-btn role-tech-btn" id="btn-role-tech" onclick="switchRoleView('TECHNICIAN')">
-            <i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician)
+            <i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)
           </button>
           <button class="role-btn role-bbim-btn" id="btn-role-bbim" onclick="switchRoleView('BBIM')">
             <i class="fa-solid fa-headset"></i> สนับสนุน (BBIM)
@@ -283,13 +283,13 @@
       <!-- LEFT PANEL: ACTION FOR TECH / BBIM / ADMIN -->
       <div class="panel">
         <div class="panel-header" id="panel-role-header">
-          <i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician) - คีย์ข้อมูลคำสั่งซื้อ (100%)
+          <i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)
         </div>
         <div class="panel-body">
           
           <!-- TECHNICIAN FORM -->
           <div id="section-technician" class="role-section">
-            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> บันทึกข้อมูลงานติดตั้ง (โดยช่างสนาม)</h3>
+            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> บันทึกข้อมูลงานติดตั้ง (โดยช่าง)</h3>
             <form id="orderForm" onsubmit="handleRegisterOrder(event)">
               <div class="form-group">
                 <label>ชื่อ-นามสกุล ลูกค้า</label>
@@ -754,7 +754,7 @@
       if (document.getElementById(activeBtnMap[role])) document.getElementById(activeBtnMap[role]).classList.add('active');
 
       const headers = {
-        'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician) - คีย์ข้อมูลคำสั่งซื้อ (100%)',
+        'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician) - คีย์ข้อมูลคำสั่งซื้อ (100%)',
         'BBIM': '<i class="fa-solid fa-headset"></i> สนับสนุน (BBIM) - ตรวจสอบและให้ความเห็น',
         'ALL': '<i class="fa-solid fa-layer-group"></i> Master View - ภาพรวมระบบและการล็อกสถานะ'
       };
@@ -1204,7 +1204,7 @@
     // EXPORT EXCEL (ปรับลำดับ Column ตามที่คุณต้องการ)
     function exportToExcel() {
       if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
-        alert("สิทธิ์ช่างสนาม (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
+        alert("สิทธิ์ช่าง (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
         return;
       }
       const startDate = document.getElementById('filterStartDate').value;
