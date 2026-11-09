@@ -1162,6 +1162,7 @@
       const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
       const isAdmin = userProfile.role === 'ADMIN';
       const isBBIM = userProfile.role === 'BBIM';
+      const userName = userProfile.name || (currentUser ? currentUser.email : 'User');
 
       if (!isAdmin && !isBBIM) {
         alert("คุณไม่มีสิทธิ์ในการล็อกหรือปลดล็อกสถานะ");
@@ -1176,18 +1177,31 @@
       if (window.db && window.fs) {
         const timeNow = getBangkokTimeString();
         const nowMs = Date.now();
+        
+        const actionLogText = lockState 
+          ? `ผู้ใช้งาน ${userName} (${userProfile.role}) ทำการ [ล็อกสถานะงาน] เพื่อเริ่มตรวจสอบ` 
+          : `ผู้ใช้งาน ${userName} (${userProfile.role}) ทำการ [ปลดล็อกสถานะงาน]`;
+
+        const newLogs = [...(order.logs || []), {
+          time: timeNow,
+          role: userProfile.role,
+          text: actionLogText
+        }];
+
         const updatePayload = {
           isLocked: lockState,
           lockedBy: lockState ? currentUid : "",
-          lockedByName: lockState ? (userProfile.name || currentUser.email) : "",
+          lockedByName: lockState ? userName : "",
           lockedAt: lockState ? timeNow : "",
-          lockedAtTimestamp: lockState ? nowMs : null
+          lockedAtTimestamp: lockState ? nowMs : null,
+          logs: newLogs
         };
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
         alert(lockState ? `ล็อกสถานะงานเรียบร้อย (เวลา ${timeNow}) เริ่มจับเวลาพิจารณา!` : "ปลดล็อกสถานะงานเรียบร้อย");
       }
     }
 
+    // EXPORT EXCEL (ปรับลำดับ Column ตามที่คุณต้องการ)
     function exportToExcel() {
       if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
         alert("สิทธิ์ช่างสนาม (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
@@ -1210,22 +1224,23 @@
       }
 
       const excelData = list.map(o => ({
-        "Order ID": o.id,
-        "ชื่อลูกค้า": o.customer,
-        "Internet No": o.internetNo,
-        "ภาค": o.region,
-        "จังหวัด": o.province,
-        "อำเภอ": o.district,
-        "ตำบล": o.subdistrict,
-        "ที่อยู่": o.address,
-        "Note จากช่าง": o.techNote || "",
-        "Note จาก BBIM": o.bbimNote || "",
-        "สถานะ": o.status,
-        "ผู้ล็อกงาน": o.lockedByName || "",
-        "เวลาที่กดล็อก": o.lockedAt || "",
-        "เวลาที่พิจารณาเสร็จ": o.processedAt || "",
-        "ระยะเวลาที่ใช้พิจารณา": o.processingDuration || "",
-        "วันที่สร้าง": o.createdAtString || ""
+        "Job ID": o.id || "",
+        "Internet no.": o.internetNo || "",
+        "Symptom": o.symptom || "",
+        "ชื่อช่าง": o.techName || "",
+        "เบอร์ติดต่อช่าง": o.techPhone || "",
+        "ตำบล": o.subdistrict || "",
+        "อำเภอ": o.district || "",
+        "จังหวัด": o.province || "",
+        "Region": o.region || "",
+        "Latitude": o.lat || "",
+        "Longitude": o.lng || "",
+        "Request Date Time": o.createdAt || "",
+        "Accept job Date Time": o.lockedAt || "",
+        "Close job Date Time": o.processedAt || "",
+        "ผลการตรวจสอบ": o.status === 'BBIM_APPROVED' ? 'สามารถติดตั้งได้' : (o.status === 'BBIM_REJECTED' ? 'ไม่อนุมัติ' : o.status || ""),
+        "หมายเหตุ (จากBBIM)": o.bbimNote || "",
+        "Owner Accept": o.ownerAccept || ""
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
