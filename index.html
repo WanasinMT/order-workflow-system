@@ -10,6 +10,9 @@
   <!-- Google Fonts Prompt -->
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   
+  <!-- SheetJS (xlsx) สำหรับ Export Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <!-- Firebase SDK Modules -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
@@ -80,7 +83,7 @@
             }
           } catch (e) {
             console.error("Error fetching user profile:", e);
-            window.currentUserProfile = { name: user.email, role: 'SALE' };
+            window.currentUserProfile = { name: user.email, role: 'TECHNICIAN' };
           }
           document.getElementById('login-modal').style.display = 'none';
           document.getElementById('currentUserName').innerText = window.currentUserProfile.name || user.email;
@@ -114,7 +117,7 @@
 </head>
 <body>
 
-  <!-- AUTHENTICATION MODAL (LOGIN / REGISTER) -->
+  <!-- AUTHENTICATION MODAL -->
   <div id="login-modal" class="login-modal">
     <div class="login-box">
       <div class="login-header">
@@ -123,13 +126,11 @@
         <p>ยืนยันตัวตนด้วย Firebase Auth & Roles System</p>
       </div>
 
-      <!-- TOGGLE TABS -->
       <div class="auth-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
         <button type="button" class="btn btn-secondary active" id="tab-login" onclick="toggleAuthMode('login')" style="flex: 1;">เข้าสู่ระบบ</button>
         <button type="button" class="btn btn-secondary" id="tab-register" onclick="toggleAuthMode('register')" style="flex: 1;">ลงทะเบียนผู้ใช้ใหม่</button>
       </div>
 
-      <!-- LOGIN FORM -->
       <form id="loginForm" onsubmit="handleAuthSubmit(event)">
         <div class="form-group">
           <label><i class="fa-solid fa-envelope"></i> อีเมล (Email)</label>
@@ -140,23 +141,21 @@
           <input type="password" id="authPassword" class="form-control" placeholder="อย่างน้อย 6 ตัวอักษร" required />
         </div>
 
-        <!-- ADDITIONAL FIELDS FOR REGISTER -->
         <div id="register-fields" class="hidden">
           <div class="form-group">
-            <label><i class="fa-solid fa-lock"></i> ยืนยันรหัสผ่านอีกรอบ (Confirm Password)</label>
+            <label><i class="fa-solid fa-lock"></i> ยืนยันรหัสผ่านอีกรอบ</label>
             <input type="password" id="authConfirmPassword" class="form-control" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
           </div>
           <div class="form-group">
-            <label><i class="fa-solid fa-id-card"></i> ชื่อ-นามสกุล ผู้ใช้งาน</label>
-            <input type="text" id="authName" class="form-control" placeholder="เช่น นายสมชาย สายชล" />
+            <label><i class="fa-solid fa-id-card"></i> ชื่อ-นามสกุล</label>
+            <input type="text" id="authName" class="form-control" placeholder="เช่น นายช่าง สมชาย" />
           </div>
           <div class="form-group">
             <label><i class="fa-solid fa-user-gear"></i> กำหนดบทบาท (Role)</label>
             <select id="authRole" class="form-control">
-              <option value="SALE">ฝ่ายขาย (Sale)</option>
-              <option value="TECHNICIAN">ทีมช่างสนาม (Technician)</option>
+              <option value="TECHNICIAN">ช่างสนาม (Technician - คีย์ข้อมูล 100%)</option>
               <option value="BBIM">ทีมสนับสนุน (BBIM)</option>
-              <option value="ADMIN">ผู้ดูแลระบบ (Admin)</option>
+              <option value="ADMIN">ผู้ดูแลระบบ (Admin - ปลดล็อกสถานะ)</option>
             </select>
           </div>
         </div>
@@ -168,12 +167,10 @@
     </div>
   </div>
 
-  <!-- LOGOUT CONFIRMATION MODAL -->
+  <!-- LOGOUT MODAL -->
   <div id="logoutModal" class="image-modal hidden" style="background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
     <div class="login-box" style="background: #fff; padding: 25px; border-radius: 12px; width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-      <div style="font-size: 40px; color: #f59e0b; margin-bottom: 12px;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-      </div>
+      <div style="font-size: 40px; color: #f59e0b; margin-bottom: 12px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
       <h3 style="margin-bottom: 8px; font-size: 18px; color: #1e293b;">ยืนยันการออกจากระบบ</h3>
       <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีนี้?</p>
       <div style="display: flex; gap: 10px;">
@@ -183,18 +180,14 @@
     </div>
   </div>
 
-  <!-- ORDER REVIEW CONFIRMATION MODAL -->
+  <!-- REVIEW ORDER MODAL -->
   <div id="reviewOrderModal" class="image-modal hidden" style="background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
     <div style="background: #fff; padding: 25px; border-radius: 12px; width: 480px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: left;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 15px;">
-        <h3 style="font-size: 18px; color: #1e293b; margin: 0;"><i class="fa-solid fa-clipboard-check" style="color: var(--primary-color);"></i> ตรวจสอบข้อมูลก่อนลงทะเบียน</h3>
+        <h3 style="font-size: 18px; color: #1e293b; margin: 0;"><i class="fa-solid fa-clipboard-check" style="color: var(--primary-color);"></i> ตรวจสอบข้อมูลก่อนบันทึก</h3>
         <span onclick="closeReviewModal()" style="font-size: 22px; cursor: pointer; color: #64748b;">&times;</span>
       </div>
-      
-      <div id="reviewOrderContent" style="font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-        <!-- ข้อมูลจะถูกดึงมาเติมที่นี่ด้วย JavaScript -->
-      </div>
-
+      <div id="reviewOrderContent" style="font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
       <div style="display: flex; gap: 10px;">
         <button type="button" class="btn btn-secondary" onclick="closeReviewModal()" style="flex: 1;">กลับไปแก้ไข</button>
         <button type="button" class="btn btn-primary" onclick="confirmAndSaveOrder()" style="flex: 1; background: #10b981; border: none;">ยืนยันและบันทึก</button>
@@ -202,7 +195,7 @@
     </div>
   </div>
 
-  <!-- IMAGE LIGHTBOX / MODAL FOR LARGE VIEW -->
+  <!-- IMAGE LIGHTBOX -->
   <div id="imageModal" class="image-modal hidden" onclick="closeImageModal()">
     <div class="image-modal-content" onclick="event.stopPropagation()">
       <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
@@ -216,19 +209,15 @@
     <div class="logo-area">
       <i class="fa-solid fa-fire logo-icon" style="color: #f59e0b;"></i>
       <div>
-        <h1>ระบบจัดการกระบวนการคำสั่งซื้อ</h1>
-        <p>Order Workflow Management System (Manual Control Mode)</p>
+        <h1>ระบบจัดการคำสั่งซื้อ (Technician & BBIM Portal)</h1>
+        <p>Order Workflow Management System (Tech 100% Entry Mode)</p>
       </div>
     </div>
     
-    <!-- USER PROFILE & ROLE SWITCHER -->
     <div class="user-profile-bar">
       <div class="role-selector">
         <span class="role-label"><i class="fa-solid fa-user-gear"></i> มุมมองสิทธิ์ใช้งาน:</span>
         <div class="role-buttons">
-          <button class="role-btn role-sale-btn" id="btn-role-sale" onclick="switchRoleView('SALE')">
-            <i class="fa-solid fa-user-tag"></i> ฝ่ายขาย (Sale)
-          </button>
           <button class="role-btn role-tech-btn" id="btn-role-tech" onclick="switchRoleView('TECHNICIAN')">
             <i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician)
           </button>
@@ -256,39 +245,32 @@
 
   <div class="main-container">
     
-    <!-- DASHBOARD STATS -->
+    <!-- STATS -->
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-info">
-          <span class="stat-title">คำสั่งซื้อทั้งหมด</span>
+          <span class="stat-title">งานทั้งหมด</span>
           <span class="stat-value" id="stat-total">0</span>
         </div>
         <div class="stat-icon bg-blue"><i class="fa-solid fa-clipboard-list"></i></div>
       </div>
       <div class="stat-card">
         <div class="stat-info">
-          <span class="stat-title">พื้นที่เสี่ยงชายแดน (72 ตำบล)</span>
-          <span class="stat-value" id="stat-border">0</span>
-        </div>
-        <div class="stat-icon bg-orange"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-title">รอตรวจสอบ TamCI / Red Zone</span>
+          <span class="stat-title">รอ BBIM ตรวจสอบ</span>
           <span class="stat-value" id="stat-pending">0</span>
         </div>
         <div class="stat-icon bg-yellow"><i class="fa-solid fa-clock"></i></div>
       </div>
       <div class="stat-card">
         <div class="stat-info">
-          <span class="stat-title">ติดตั้งสำเร็จ</span>
+          <span class="stat-title">BBIM อนุมัติสำเร็จ</span>
           <span class="stat-value" id="stat-success">0</span>
         </div>
         <div class="stat-icon bg-green"><i class="fa-solid fa-circle-check"></i></div>
       </div>
       <div class="stat-card">
         <div class="stat-info">
-          <span class="stat-title">ยกเลิก / ปฏิเสธ</span>
+          <span class="stat-title">ไม่อนุมัติ / แจ้งกลับ</span>
           <span class="stat-value" id="stat-rejected">0</span>
         </div>
         <div class="stat-icon bg-red"><i class="fa-solid fa-circle-xmark"></i></div>
@@ -298,142 +280,170 @@
     <!-- MAIN WORKSPACE -->
     <div class="workspace-grid">
       
-      <!-- LEFT COLUMN: ROLE ACTION PANEL -->
+      <!-- LEFT PANEL: ACTION FOR TECH / BBIM / ADMIN -->
       <div class="panel">
         <div class="panel-header" id="panel-role-header">
-          <i class="fa-solid fa-user-tag"></i> ฝ่ายขาย (Sale) - ดำเนินการคำสั่งซื้อ
+          <i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician) - คีย์ข้อมูลคำสั่งซื้อ (100%)
         </div>
         <div class="panel-body">
           
-          <!-- SALE FORM -->
-          <div id="section-sale" class="role-section">
-            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> 1. ลงทะเบียนคำสั่งซื้อใหม่ (Register Order)</h3>
+          <!-- TECHNICIAN FORM -->
+          <div id="section-technician" class="role-section">
+            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> บันทึกข้อมูลงานติดตั้ง (โดยช่างสนาม)</h3>
             <form id="orderForm" onsubmit="handleRegisterOrder(event)">
               <div class="form-group">
                 <label>ชื่อ-นามสกุล ลูกค้า</label>
                 <input type="text" id="custName" class="form-control" placeholder="เช่น คุณสมชาย ใจดี" required />
               </div>
               
-              <!-- Internet No. Field -->
               <div class="form-group">
                 <label><i class="fa-solid fa-network-wired"></i> หมายเลขบริการอินเทอร์เน็ต (Internet No.)</label>
-                <input type="text" id="internetNo" class="form-control" placeholder="เช่น 88XXXXXXXX หรือ 96XXXXXXXX" required />
+                <input type="text" id="internetNo" class="form-control" placeholder="เช่น 88XXXXXXXX" required />
               </div>
-              
-              <!-- Searchable Sub-district Input -->
-              <div class="form-group" style="position: relative;">
-                <label><i class="fa-solid fa-map-location-dot"></i> พื้นที่ติดตั้ง (เลือกตำบล / อำเภอ / จังหวัด ทั่วประเทศไทย)</label>
-                <input type="text" id="searchSubDistrict" class="form-control" placeholder="พิมพ์ชื่อตัวอักษรเพื่อค้นหา (เช่น เชียง, บาง, หาด)..." autocomplete="off" required />
-                <input type="hidden" id="subDistrict" name="subDistrict" />
-                <div id="subDistrictSuggestions" class="suggestions-box"></div>
+
+              <!-- DROPDOWN ADDRESS: Region -> Province -> District -> Subdistrict -->
+              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-globe"></i> ภาค (Region)</label>
+                  <select id="selectRegion" class="form-control" onchange="onRegionChange()" required>
+                    <option value="">-- เลือกภาค --</option>
+                    <option value="ภาคกลาง">ภาคกลาง</option>
+                    <option value="ภาคเหนือ">ภาคเหนือ</option>
+                    <option value="ภาคตะวันออกเฉียงเหนือ">ภาคตะวันออกเฉียงเหนือ</option>
+                    <option value="ภาคใต้">ภาคใต้</option>
+                    <option value="ภาคตะวันออก">ภาคตะวันออก</option>
+                    <option value="ภาคตะวันตก">ภาคตะวันตก</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-map"></i> จังหวัด (Province)</label>
+                  <select id="selectProvince" class="form-control" onchange="onProvinceChange()" required disabled>
+                    <option value="">-- เลือกจังหวัด --</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-city"></i> อำเภอ/เขต (District)</label>
+                  <select id="selectDistrict" class="form-control" onchange="onDistrictChange()" required disabled>
+                    <option value="">-- เลือกอำเภอ --</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label><i class="fa-solid fa-location-dot"></i> ตำบล/แขวง (Subdistrict)</label>
+                  <select id="selectSubdistrict" class="form-control" required disabled>
+                    <option value="">-- เลือกตำบล --</option>
+                  </select>
+                </div>
               </div>
 
               <div class="form-group">
-                <label>ที่อยู่ติดตั้งโดยละเอียด</label>
+                <label>ที่อยู่ติดตั้งโดยรายละเอียด</label>
                 <textarea id="custAddress" class="form-control" rows="2" placeholder="บ้านเลขที่, ถนน, ซอย..." required></textarea>
               </div>
 
-              <!-- Lat/Lng fields -->
               <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
                 <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-location-dot"></i> ละติจูด (Latitude)</label>
-                  <input type="text" id="custLat" class="form-control" placeholder="เช่น 13.7563" />
+                  <label>ละติจูด (Latitude)</label>
+                  <input type="text" id="custLat" class="form-control" placeholder="13.7563" />
                 </div>
                 <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-location-dot"></i> ลองจิจูด (Longitude)</label>
-                  <input type="text" id="custLng" class="form-control" placeholder="เช่น 100.5018" />
+                  <label>ลองจิจูด (Longitude)</label>
+                  <input type="text" id="custLng" class="form-control" placeholder="100.5018" />
                 </div>
               </div>
               <button type="button" class="btn btn-secondary" onclick="getGPSLocation(event)" style="width: 100%; margin-bottom: 12px; font-size: 13px;">
-                <i class="fa-solid fa-crosshairs"></i> ดึงพิกัดปัจจุบันอัตโนมัติ (GPS)
+                <i class="fa-solid fa-crosshairs"></i> <span class="gps-btn-text">ดึงพิกัด GPS อัตโนมัติ</span>
               </button>
 
-              <!-- Camera Field -->
               <div class="form-group">
-                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพสถานที่ / หน้างาน (เปิดกล้องถ่ายรูป)</label>
+                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพหน้างาน (สูงสุด 5 ภาพ)</label>
                 <input type="file" id="custImageFile" class="form-control" accept="image/*" multiple onchange="previewSelectedImages(event)" />
-                <small style="color:var(--text-muted); font-size:12px; display:block; margin-top:4px;">* สามารถเลือก/ถ่ายภาพได้สูงสุด 5 ภาพ[cite: 3]</small>
                 <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
                   <div id="imagePreviewList" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
                 </div>
               </div>
 
-              <!-- Support Box: อธิบายเว็บสั้นๆ -->
-              <div class="support-box">
-                <h4><i class="fa-solid fa-circle-info"></i> เกี่ยวกับระบบ Order Workflow:</h4>
-                <ul style="padding-left: 18px; margin-top: 6px; font-size: 13px;">
-                  <li><strong>ฝ่ายขาย (Sale):</strong> ลงทะเบียนคำสั่งซื้อใหม่ พร้อมแนบพิกัด GPS , ค้นหาตำบลทั่วไทย และถ่ายภาพหน้างานได้สูงสุด 5 ภาพ</li>
-                  <li><strong>ช่างสนาม (Technician):</strong> กดรับงาน ตรวจสอบพื้นที่ และบันทึกผลการติดตั้ง</li>
-                  <li><strong>ทีมสนับสนุน (BBIM):</strong> ตรวจสอบพิกัด TamCI, พื้นที่เสี่ยงชายแดน 72 ตำบล, ขายข้ามโซน และ Red Zone</li>
-                  <li><strong>ผู้ดูแลระบบ (Admin):</strong> ดูภาพรวมทุกขั้นตอน และอนุมัติสิทธิ์การเข้าใช้งานของผู้ใช้ใหม่</li>
-                </ul>
+              <!-- Note จากช่าง -->
+              <div class="form-group">
+                <label><i class="fa-solid fa-note-sticky"></i> Note เพิ่มเติมจากช่าง (ส่งให้ BBIM)</label>
+                <textarea id="techNote" class="form-control" rows="2" placeholder="ระบุรายละเอียดเพิ่มเติมเกี่ยวกับหน้างานหรืออุปกรณ์..."></textarea>
               </div>
 
-              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-                <i class="fa-solid fa-paper-plane"></i> ลงทะเบียนคำสั่งซื้อ (Register Order)
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: var(--primary-color);">
+                <i class="fa-solid fa-paper-plane"></i> ส่งข้อมูลให้ BBIM ตรวจสอบ
               </button>
             </form>
           </div>
 
-          <!-- TECHNICIAN PANEL -->
-          <div id="section-technician" class="role-section hidden">
-            <h3 class="section-title"><i class="fa-solid fa-helmet-safety"></i> 2. ดำเนินการโดยทีมช่างสนาม (Technician Workstation)</h3>
-            <p class="text-muted">กดรับงาน ตรวจสอบธงพื้นที่ และบันทึกผลการติดตั้งด้วยตนเอง[cite: 3]</p>
-            <div id="tech-action-container"></div>
-          </div>
-
           <!-- BBIM PANEL -->
           <div id="section-bbim" class="role-section hidden">
-            <h3 class="section-title"><i class="fa-solid fa-shield-halved"></i> 3. การตรวจสอบโดยทีมสนับสนุน (BBIM Verification)</h3>
-            <p class="text-muted">ตรวจสอบคำขอ TamCI, การขายข้ามโซน (Cross Zone) และอนุมัติ/ปฏิเสธพื้นที่ Red Zone ด้วยตนเอง[cite: 3]</p>
+            <h3 class="section-title"><i class="fa-solid fa-headset"></i> ตรวจสอบคำขอโดย BBIM</h3>
+            <p class="text-muted">BBIM เห็นข้อมูลทั้งหมดที่ช่างกรอกเข้ามา พร้อมประเมินและใส่ Note แจ้งช่างกลับได้</p>
             <div id="bbim-action-container"></div>
           </div>
 
-          <!-- ALL VIEW PANEL (ADMIN CONTROL PANEL) -->
+          <!-- ALL VIEW (ADMIN / MASTER PANEL) -->
           <div id="section-all" class="role-section hidden">
-            <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Master Command & Admin Approval Panel</h3>
-            <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบ (Admin) สามารถอนุมัติสิทธิ์ให้ผู้สมัครใหม่ และดูภาพรวมระบบได้ที่นี่[cite: 3]</p>
+            <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Master Command & Admin Panel</h3>
+            <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบสามารถปลดล็อกสถานะงาน และจัดการสิทธิ์ผู้ใช้งาน</p>
             
-            <!-- 1. รายการที่รออนุมัติ -->
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
               <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-user-clock"></i> รายการผู้ขอสิทธิ์ที่รออนุมัติ (Pending Approval Requests)
+                <i class="fa-solid fa-user-clock"></i> รายการผู้ขอสิทธิ์ที่รออนุมัติ
               </h4>
               <div id="pendingAdminsList">
-                <p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการผู้ขอสิทธิ์ที่รออนุมัติในขณะนี้</p>
+                <p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการที่รออนุมัติ</p>
               </div>
             </div>
 
-            <!-- 2. ประวัติการอนุมัติและปฏิเสธ -->
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
               <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการดำเนินการอนุมัติและปฏิเสธ (Approval History)
+                <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการอนุมัติสิทธิ์ผู้ใช้งาน
               </h4>
-              <div id="adminHistoryList" style="max-height: 250px; overflow-y: auto;">
+              <div id="adminHistoryList" style="max-height: 200px; overflow-y: auto;">
                 <p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>
               </div>
             </div>
-
           </div>
 
         </div>
       </div>
 
-      <!-- RIGHT COLUMN: ORDER TABLE & AUDIT LOG -->
+      <!-- RIGHT PANEL: SEARCH & ORDER TABLE & EXPORT EXCEL -->
       <div class="panel">
-        <div class="panel-header">
-          <i class="fa-solid fa-table-list"></i> รายการคำสั่งซื้อในระบบ (Orders List)
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div><i class="fa-solid fa-table-list"></i> รายการคำสั่งซื้อและประวัติงานในระบบ</div>
+          
+          <!-- EXPORT EXCEL & SEARCH CONTROLS -->
+          <div id="exportControlsContainer" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input type="date" id="filterStartDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
+            <span style="color: #fff; font-size: 12px;">ถึง</span>
+            <input type="date" id="filterEndDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
+            <button class="btn btn-sm btn-success" onclick="exportToExcel()" style="background: #10b981; border: none; color: #fff;">
+              <i class="fa-solid fa-file-excel"></i> Export Excel
+            </button>
+          </div>
         </div>
+
         <div class="panel-body">
+          <!-- ช่องค้นหาประวัติ -->
+          <div class="form-group" style="margin-bottom: 12px;">
+            <div style="position: relative;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 12px; color: #94a3b8;"></i>
+              <input type="text" id="searchHistoryInput" class="form-control" placeholder="ค้นหาประวัติ (ชื่อลูกค้า, เลขอินเทอร์เน็ต, ตำบล, หรือสถานะ)..." oninput="renderTable()" style="padding-left: 35px;" />
+            </div>
+          </div>
+
           <div class="order-table-container" style="overflow-x: auto; max-height: 285px; overflow-y: auto;">
             <table class="order-table">
               <thead>
                 <tr>
                   <th>เลขที่ Order</th>
                   <th>ลูกค้า / Internet No.</th>
-                  <th>พื้นที่ / พิกัด</th>
+                  <th>พื้นที่ (Region / Address)</th>
                   <th>รูปภาพ</th>
-                  <th>ธงชายแดน</th>
                   <th>สถานะปัจจุบัน</th>
                   <th>การจัดการ</th>
                 </tr>
@@ -442,17 +452,17 @@
             </table>
           </div>
 
-          <!-- AUDIT LOG & ORDER DETAIL VIEW -->
+          <!-- AUDIT LOG & NOTE DETAILS -->
           <div style="margin-top: 24px;">
             <h4 class="section-title" style="font-size: 15px;">
-              <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการทำงานและ Audit Trail ของ Order: <span id="selected-order-id" style="color: var(--primary-color);">[กรุณาเลือก Order]</span>
+              <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการทำงานและ Note จากช่าง/BBIM: <span id="selected-order-id" style="color: var(--primary-color);">[กรุณาเลือก Order]</span>
             </h4>
-            <div id="selectedOrderImageContainer" style="margin-bottom: 12px; display: none;"></div>
+            <div id="bbimNoteDisplayBox" style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; display: none;"></div>
             <div class="log-box" id="auditLogContainer">
               <div class="log-item">
                 <span class="log-time">--:--</span>
                 <span class="log-role">SYSTEM</span>
-                <span class="log-text">กรุณาเลือกรายการ Order ด้านบนเพื่อดูประวัติการทำงานแบบเรียลไทม์</span>
+                <span class="log-text">กรุณาเลือกรายการ Order ด้านบนเพื่อดูรายละเอียด</span>
               </div>
             </div>
           </div>
@@ -464,24 +474,131 @@
   </div>
 
   <script>
-    let authMode = 'login';
-    let currentRoleView = 'SALE';
+    let currentRoleView = 'TECHNICIAN';
     let selectedOrderId = '';
     let currentBase64Images = [];
-    let isSelectedBorderArea = false;
-    let pendingOrderData = null; // เก็บข้อมูลชั่วคราวก่อนยืนยันลงทะเบียน
+    let pendingOrderData = null;
+
+    // ข้อมูลโครงสร้างที่อยู่ (Region -> Province -> District -> Subdistrict)
+    const THAILAND_REGIONS_DATA = {
+      "ภาคกลาง": {
+        "กรุงเทพมหานคร": {
+          "บางซื่อ": ["บางซื่อ", "วงศ์สว่าง"],
+          "ห้วยขวาง": ["ห้วยขวาง", "สามเสนนอก", "บางกะปิ"],
+          "ปทุมวัน": ["ปทุมวัน", "รองเมือง", "วังใหม่", "ลุมพินี"],
+          "บางรัก": ["สีลม", "สุริยวงศ์", "บางรัก", "สี่พระยา", "มหาพฤฒาราม"]
+        },
+        "นนทบุรี": {
+          "ปากเกร็ด": ["ปากเกร็ด", "บางตลาด", "คลองเกลือ", "บ้านใหม่", "อ้อมเกร็ด"]
+        }
+      },
+      "ภาคใต้": {
+        "สงขลา": {
+          "หาดใหญ่": ["หาดใหญ่", "คอหงส์", "คลองแห", "บ้านพรุ", "ทุ่งใหญ่"]
+        },
+        "นราธิวาส": {
+          "สุไหงโกลก": ["สุไหงโกลก", "ปูโละปูโย", "มูโนะ", "สุวารี"]
+        },
+        "ยะลา": {
+          "เบตง": ["เบตง", "ยะรม", "ตาเนาะแมเราะ", "อัยเยอร์เวง"]
+        }
+      },
+      "ภาคตะวันออก": {
+        "ชลบุรี": {
+          "เมืองชลบุรี": ["บางปลาสร้อย", "บ้านสวน", "หนองไม้แดง", "เสม็ด"],
+          "บางละมุง": ["เมืองพัทยา", "นาเกลือ", "หนองปรือ", "ห้วยใหญ่"]
+        },
+        "ตราด": {
+          "คลองใหญ่": ["คลองใหญ่", "ไม้รูด", "หาดเล็ก", "ชำราก"]
+        }
+      },
+      "ภาคเหนือ": {
+        "เชียงราย": {
+          "เมืองเชียงราย": ["เวียง", "รอบเวียง", "สันทราย", "ริมกก"],
+          "แม่สาย": ["แม่สาย", "เวียงพางคำ", "เกาะช้าง", "โป่งงาม"]
+        },
+        "เชียงใหม่": {
+          "เมืองเชียงใหม่": ["ศรีภูมิ", "พระสิงห์", "ช้างเผือก", "สุเทพ", "หายยา"]
+        }
+      },
+      "ภาคตะวันออกเฉียงเหนือ": {
+        "อุบลราชธานี": {
+          "เมืองอุบลราชธานี": ["ในเมือง", "แจระแม", "ขามใหญ่", "ปะอาว"]
+        },
+        "ขอนแก่น": {
+          "เมืองขอนแก่น": ["ในเมือง", "ศิลา", "บ้านเป็ด", "พระลับ"]
+        }
+      },
+      "ภาคตะวันตก": {
+        "กาญจนบุรี": {
+          "เมืองกาญจนบุรี": ["บ้านเหนือ", "บ้านใต้", "ปากแพรก", "ท่ามะขาม"]
+        }
+      }
+    };
+
+    function onRegionChange() {
+      const reg = document.getElementById('selectRegion').value;
+      const provSelect = document.getElementById('selectProvince');
+      const distSelect = document.getElementById('selectDistrict');
+      const subSelect = document.getElementById('selectSubdistrict');
+
+      provSelect.innerHTML = '<option value="">-- เลือกจังหวัด --</option>';
+      distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
+      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
+      distSelect.disabled = true;
+      subSelect.disabled = true;
+
+      if (reg && THAILAND_REGIONS_DATA[reg]) {
+        provSelect.disabled = false;
+        Object.keys(THAILAND_REGIONS_DATA[reg]).forEach(prov => {
+          provSelect.innerHTML += `<option value="${prov}">${prov}</option>`;
+        });
+      } else {
+        provSelect.disabled = true;
+      }
+    }
+
+    function onProvinceChange() {
+      const reg = document.getElementById('selectRegion').value;
+      const prov = document.getElementById('selectProvince').value;
+      const distSelect = document.getElementById('selectDistrict');
+      const subSelect = document.getElementById('selectSubdistrict');
+
+      distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
+      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
+      subSelect.disabled = true;
+
+      if (prov && THAILAND_REGIONS_DATA[reg][prov]) {
+        distSelect.disabled = false;
+        Object.keys(THAILAND_REGIONS_DATA[reg][prov]).forEach(dist => {
+          distSelect.innerHTML += `<option value="${dist}">${dist}</option>`;
+        });
+      } else {
+        distSelect.disabled = true;
+      }
+    }
+
+    function onDistrictChange() {
+      const reg = document.getElementById('selectRegion').value;
+      const prov = document.getElementById('selectProvince').value;
+      const dist = document.getElementById('selectDistrict').value;
+      const subSelect = document.getElementById('selectSubdistrict');
+
+      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
+
+      if (dist && THAILAND_REGIONS_DATA[reg][prov][dist]) {
+        subSelect.disabled = false;
+        THAILAND_REGIONS_DATA[reg][prov][dist].forEach(sub => {
+          subSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+        });
+      } else {
+        subSelect.disabled = true;
+      }
+    }
 
     function getBangkokTimeString() {
       const now = new Date();
-      const options = {
-        timeZone: 'Asia/Bangkok',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      };
+      const options = { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
       const formatter = new Intl.DateTimeFormat('en-CA', options);
       const parts = formatter.formatToParts(now);
       const partObj = {};
@@ -489,125 +606,15 @@
       return `${partObj.year}-${partObj.month}-${partObj.day} ${partObj.hour}:${partObj.minute}`;
     }
 
-    const BORDER_DISTRICTS = [
-      "สุไหงโกลก", "เบตง", "ตากใบ", "แม่สาย", "คลองใหญ่", "แว้ง", "สุคิริน", "ศรีสาคร", "จะแนะ", "เจาะไอร้อง"
-    ];
-
-    const THAILAND_LOCATIONS = [
-      { subdistrict: "เชียงราย", district: "เมืองเชียงราย", province: "เชียงราย" },
-      { subdistrict: "เวียง", district: "เมืองเชียงราย", province: "เชียงราย" },
-      { subdistrict: "รอบเวียง", district: "เมืองเชียงราย", province: "เชียงราย" },
-      { subdistrict: "แม่สาย", district: "แม่สาย", province: "เชียงราย" },
-      { subdistrict: "เวียงพางคำ", district: "แม่สาย", province: "เชียงราย" },
-      { subdistrict: "เชียงแสน", district: "เชียงแสน", province: "เชียงราย" },
-      { subdistrict: "เชียงใหม่", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
-      { subdistrict: "ศรีภูมิ", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
-      { subdistrict: "พระสิงห์", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
-      { subdistrict: "ช้างเผือก", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
-      { subdistrict: "สุเทพ", district: "เมืองเชียงใหม่", province: "เชียงใหม่" },
-      { subdistrict: "เชียงดาว", district: "เชียงดาว", province: "เชียงใหม่" },
-      { subdistrict: "เชียงเคี่ยน", district: "เทิง", province: "เชียงราย" },
-      { subdistrict: "เชียงคาน", district: "เชียงคาน", province: "เลย" },
-      { subdistrict: "เชียงกลม", district: "ปากชม", province: "เลย" },
-      { subdistrict: "เชียงแรง", district: "ภูซาง", province: "พะเยา" },
-      { subdistrict: "เชียงม่วน", district: "เชียงม่วน", province: "พะเยา" },
-      { subdistrict: "บ้านสระ", district: "เชียงม่วน", province: "พะเยา" },
-      { subdistrict: "เชียงขาน", district: "เมือง", province: "เลย" },
-      { subdistrict: "บางซื่อ", district: "บางซื่อ", province: "กรุงเทพมหานคร" },
-      { subdistrict: "บางกะปิ", district: "ห้วยขวาง", province: "กรุงเทพมหานคร" },
-      { subdistrict: "ปทุมวัน", district: "ปทุมวัน", province: "กรุงเทพมหานคร" },
-      { subdistrict: "สีลม", district: "บางรัก", province: "กรุงเทพมหานคร" },
-      { subdistrict: "ปากเกร็ด", district: "ปากเกร็ด", province: "นนทบุรี" },
-      { subdistrict: "หาดใหญ่", district: "หาดใหญ่", province: "สงขลา" },
-      { subdistrict: "สุไหงโกลก", district: "สุไหงโกลก", province: "นราธิวาส" },
-      { subdistrict: "เบตง", district: "เบตง", province: "ยะลา" },
-      { subdistrict: "ตากใบ", district: "ตากใบ", province: "นราธิวาส" },
-      { subdistrict: "คลองใหญ่", district: "คลองใหญ่", province: "ตราด" },
-      { subdistrict: "เมืองพัทยา", district: "บางละมุง", province: "ชลบุรี" },
-      { subdistrict: "ในเมือง", district: "เมืองอุบลราชธานี", province: "อุบลราชธานี" },
-      { subdistrict: "ในเมือง", district: "เมืองขอนแก่น", province: "ขอนแก่น" },
-      { subdistrict: "ในเมือง", district: "เมืองนครราชสีมา", province: "นครราชสีมา" },
-      { subdistrict: "ชลบุรี", district: "เมืองชลบุรี", province: "ชลบุรี" },
-      { subdistrict: "ภูเก็ต", district: "เมืองภูเก็ต", province: "ภูเก็ต" },
-      { subdistrict: "ตลาดใหญ่", district: "เมืองภูเก็ต", province: "ภูเก็ต" },
-      { subdistrict: "สุราษฎร์ธานี", district: "เมืองสุราษฎร์ธานี", province: "สุราษฎร์ธานี" }
-    ];
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const searchInput = document.getElementById('searchSubDistrict');
-      const suggestionsBox = document.getElementById('subDistrictSuggestions');
-      const hiddenInput = document.getElementById('subDistrict');
-
-      if (searchInput) {
-        searchInput.addEventListener('input', function() {
-          const keyword = this.value.trim().toLowerCase();
-          suggestionsBox.innerHTML = '';
-
-          if (keyword.length < 1) {
-            suggestionsBox.style.display = 'none';
-            return;
-          }
-
-          const matches = THAILAND_LOCATIONS.filter(item => {
-            return item.subdistrict.toLowerCase().includes(keyword) || 
-                   item.district.toLowerCase().includes(keyword) || 
-                   item.province.toLowerCase().includes(keyword);
-          });
-
-          if (matches.length > 0) {
-            suggestionsBox.style.display = 'block';
-            matches.slice(0, 50).forEach(item => {
-              const fullName = `${item.subdistrict} (อ./เขต ${item.district} จ.${item.province})`;
-              const isBorder = BORDER_DISTRICTS.some(b => item.subdistrict.includes(b) || item.district.includes(b));
-
-              const div = document.createElement('div');
-              div.className = 'suggestion-item';
-              div.innerHTML = `
-                <i class="fa-solid fa-location-dot" style="color:var(--primary-color);"></i> 
-                <strong>${item.subdistrict}</strong> 
-                <span style="color:#64748b; font-size:12px;">-> อ./เขต ${item.district} จ.${item.province}</span>
-                ${isBorder ? '<span class="badge badge-orange" style="margin-left:6px;"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : ''}
-              `;
-
-              div.onclick = function() {
-                searchInput.value = fullName;
-                hiddenInput.value = fullName;
-                isSelectedBorderArea = isBorder;
-                suggestionsBox.style.display = 'none';
-              };
-              suggestionsBox.appendChild(div);
-            });
-          } else {
-            suggestionsBox.style.display = 'none';
-          }
-        });
-
-        document.addEventListener('click', function(e) {
-          if (e.target !== searchInput && e.target !== suggestionsBox) {
-            suggestionsBox.style.display = 'none';
-          }
-        });
-      }
-    });
-
-    window.orders = [];
-
     const STATUS_MAP = {
-      'REGISTERED': { text: 'ลงทะเบียนแล้ว', class: 'badge-blue' },
-      'PROSPECT_CREATED': { text: 'สร้าง Prospect แล้ว', class: 'badge-purple' },
-      'DISPATCHED': { text: 'ส่งงานให้ช่างแล้ว', class: 'badge-blue' },
-      'WAITING_TAMCI_VERIFY': { text: 'รออนุมัติ TamCI (BBIM)', class: 'badge-yellow' },
-      'READY_TO_INSTALL': { text: 'พร้อมติดตั้ง', class: 'badge-blue' },
-      'INSTALLED_SUCCESS': { text: 'ติดตั้งสำเร็จ', class: 'badge-green' },
-      'CANCELLED_CROSS_ZONE': { text: 'ยกเลิก (ขายข้ามโซน)', class: 'badge-red' },
-      'REJECTED_RED_ZONE': { text: 'ปฏิเสธ (พื้นที่ Red Zone)', class: 'badge-red' },
-      'REJECTED_LMR_SOA': { text: 'ปฏิเสธงาน (LMR/SOA)', class: 'badge-red' }
+      'PENDING_BBIM': { text: 'รอ BBIM ตรวจสอบ', class: 'badge-yellow' },
+      'BBIM_APPROVED': { text: 'BBIM อนุมัติสำเร็จ', class: 'badge-green' },
+      'BBIM_REJECTED': { text: 'BBIM ไม่อนุมัติ', class: 'badge-red' }
     };
 
     function openImageModal(imgSrc, caption = "ภาพถ่ายหน้างาน") {
       const modal = document.getElementById('imageModal');
-      const modalContent = modal.querySelector('.image-modal-content');
-      modalContent.innerHTML = `
+      modal.querySelector('.image-modal-content').innerHTML = `
         <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
         <img id="modalImage" src="${imgSrc}" alt="Full Size Image" />
         <div id="modalImageCaption" style="text-align:center; margin-top:10px; color:#fff; font-weight:500;">${caption}</div>
@@ -617,9 +624,7 @@
 
     function openAllImagesModal(imgList, orderId) {
       const modal = document.getElementById('imageModal');
-      const modalContent = modal.querySelector('.image-modal-content');
-      
-      modalContent.innerHTML = `
+      modal.querySelector('.image-modal-content').innerHTML = `
         <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
         <h3 style="color:#fff; text-align:center; margin-bottom:15px; font-size:16px;">ภาพถ่ายหน้างาน Order: ${orderId} (${imgList.length} รูป)</h3>
         <div style="display: flex; flex-direction: column; gap: 15px; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
@@ -634,45 +639,28 @@
       modal.classList.remove('hidden');
     }
 
-    function closeImageModal() {
-      document.getElementById('imageModal').classList.add('hidden');
-    }
-
-    function openLogoutModal() {
-      document.getElementById('logoutModal').classList.remove('hidden');
-    }
-
-    function closeLogoutModal() {
-      document.getElementById('logoutModal').classList.add('hidden');
-    }
-
+    function closeImageModal() { document.getElementById('imageModal').classList.add('hidden'); }
+    function openLogoutModal() { document.getElementById('logoutModal').classList.remove('hidden'); }
+    function closeLogoutModal() { document.getElementById('logoutModal').classList.add('hidden'); }
     async function confirmLogout() {
       closeLogoutModal();
-      if (window.auth && window.fbAuth) {
-        await window.fbAuth.signOut(window.auth);
-      }
+      if (window.auth && window.fbAuth) await window.fbAuth.signOut(window.auth);
     }
 
     async function previewSelectedImages(event) {
       const newFiles = Array.from(event.target.files);
       if (newFiles.length === 0) return;
-
       if (currentBase64Images.length + newFiles.length > 5) {
-        alert(`เลือกรูปภาพได้สูงสุด 5 ภาพ[cite: 3]`);
+        alert("เลือกรูปภาพได้สูงสุด 5 ภาพ");
         event.target.value = "";
         return;
       }
-
-      const readPromises = newFiles.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.readAsDataURL(file);
-        });
-      });
-
-      const newBase64Results = await Promise.all(readPromises);
-      currentBase64Images = currentBase64Images.concat(newBase64Results);
+      const readPromises = newFiles.map(file => new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      }));
+      currentBase64Images = currentBase64Images.concat(await Promise.all(readPromises));
       renderPreviewGallery();
       event.target.value = "";
     }
@@ -681,52 +669,16 @@
       const container = document.getElementById('imagePreviewContainer');
       const previewList = document.getElementById('imagePreviewList');
       previewList.innerHTML = '';
-
-      if (currentBase64Images.length === 0) {
-        container.style.display = 'none';
-        return;
-      }
+      if (currentBase64Images.length === 0) { container.style.display = 'none'; return; }
       container.style.display = 'block';
-
       currentBase64Images.forEach((imgSrc, idx) => {
         const wrapper = document.createElement('div');
         wrapper.style.position = 'relative';
         wrapper.style.display = 'inline-block';
-
-        const img = document.createElement('img');
-        img.src = imgSrc;
-        img.style.width = '70px';
-        img.style.height = '70px';
-        img.style.objectFit = 'cover';
-        img.style.borderRadius = '6px';
-        img.style.border = '1px solid var(--border-color)';
-        img.style.cursor = 'pointer';
-        img.onclick = () => openImageModal(imgSrc, `ภาพถ่ายหน้างาน (${idx + 1}/${currentBase64Images.length})`);
-
-        const removeBtn = document.createElement('span');
-        removeBtn.innerHTML = '&times;';
-        removeBtn.style.position = 'absolute';
-        removeBtn.style.top = '-6px';
-        removeBtn.style.right = '-6px';
-        removeBtn.style.background = '#ef4444';
-        removeBtn.style.color = '#fff';
-        removeBtn.style.borderRadius = '50%';
-        removeBtn.style.width = '18px';
-        removeBtn.style.height = '18px';
-        removeBtn.style.display = 'flex';
-        removeBtn.style.alignItems = 'center';
-        removeBtn.style.justifyContent = 'center';
-        removeBtn.style.fontSize = '12px';
-        removeBtn.style.fontWeight = 'bold';
-        removeBtn.style.cursor = 'pointer';
-        removeBtn.onclick = (e) => {
-          e.stopPropagation();
-          currentBase64Images.splice(idx, 1);
-          renderPreviewGallery();
-        };
-
-        wrapper.appendChild(img);
-        wrapper.appendChild(removeBtn);
+        wrapper.innerHTML = `
+          <img src="${imgSrc}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" onclick="openImageModal('${imgSrc}')" />
+          <span onclick="currentBase64Images.splice(${idx},1); renderPreviewGallery();" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer;">&times;</span>
+        `;
         previewList.appendChild(wrapper);
       });
     }
@@ -735,22 +687,16 @@
       authMode = mode;
       const regFields = document.getElementById('register-fields');
       const submitBtn = document.getElementById('authSubmitBtn');
-      const tabLogin = document.getElementById('tab-login');
-      const tabReg = document.getElementById('tab-register');
-      const confirmPassInput = document.getElementById('authConfirmPassword');
-
       if (mode === 'register') {
         regFields.classList.remove('hidden');
         submitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> ลงทะเบียน (Register)';
-        tabLogin.classList.remove('active');
-        tabReg.classList.add('active');
-        confirmPassInput.setAttribute('required', 'true');
+        document.getElementById('tab-login').classList.remove('active');
+        document.getElementById('tab-register').classList.add('active');
       } else {
         regFields.classList.add('hidden');
         submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ (Login)';
-        tabReg.classList.remove('active');
-        tabLogin.classList.add('active');
-        confirmPassInput.removeAttribute('required');
+        document.getElementById('tab-register').classList.remove('active');
+        document.getElementById('tab-login').classList.add('active');
       }
     }
 
@@ -758,167 +704,121 @@
       e.preventDefault();
       const email = document.getElementById('authEmail').value.trim();
       const password = document.getElementById('authPassword').value;
-
-      if (!window.auth || !window.fbAuth) {
-        alert("กรุณาตั้งค่า Firebase Config");
-        return;
-      }
+      if (!window.auth || !window.fbAuth) { alert("กรุณาตั้งค่า Firebase Config"); return; }
 
       if (authMode === 'login') {
         try {
           const res = await window.fbAuth.signInWithEmailAndPassword(window.auth, email, password);
-          const userDocRef = window.fs.doc(window.db, "users", res.user.uid);
-          const userSnap = await window.fs.getDoc(userDocRef);
-          if (userSnap.exists()) {
-            const profile = userSnap.data();
-            if (profile.status === 'PENDING') {
-              alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์จาก Admin ปัจจุบันก่อนเข้าใช้งาน");
-              await window.fbAuth.signOut(window.auth);
-              return;
-            } else if (profile.status === 'REJECTED') {
-              alert("❌ บัญชีของคุณถูกปฏิเสธสิทธิ์การใช้งานจาก Admin");
-              await window.fbAuth.signOut(window.auth);
-              return;
-            }
+          const userSnap = await window.fs.getDoc(window.fs.doc(window.db, "users", res.user.uid));
+          if (userSnap.exists() && userSnap.data().status === 'PENDING') {
+            alert("🔒 บัญชีของคุณอยู่ระหว่างรออนุมัติจาก Admin");
+            await window.fbAuth.signOut(window.auth);
           }
-        } catch (err) {
-          alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message);
-        }
+        } catch (err) { alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message); }
       } else {
-        const confirmPassword = document.getElementById('authConfirmPassword').value;
-        if (password !== confirmPassword) {
-          alert("❌ รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
-          return;
-        }
-
         const name = document.getElementById('authName').value.trim();
         const role = document.getElementById('authRole').value;
         const initialStatus = (role === 'ADMIN') ? 'PENDING' : 'APPROVED';
         try {
           const res = await window.fbAuth.createUserWithEmailAndPassword(window.auth, email, password);
           await window.fs.setDoc(window.fs.doc(window.db, "users", res.user.uid), {
-            uid: res.user.uid,
-            email: email,
-            name: name || email,
-            role: role,
-            status: initialStatus,
-            createdAt: window.fs.serverTimestamp()
+            uid: res.user.uid, email: email, name: name || email, role: role, status: initialStatus, createdAt: window.fs.serverTimestamp()
           });
-          if (initialStatus === 'PENDING') {
-            alert("สมัครสมาชิกสำเร็จ! บัญชีของคุณจะเข้าใช้งานได้หลังจากได้รับอนุมัติจาก Admin เรียบร้อยแล้ว");
-            await window.fbAuth.signOut(window.auth);
-          } else {
-            alert("สมัครสมาชิกสำเร็จ!");
-          }
-        } catch (err) {
-          alert("สมัครสมาชิกไม่สำเร็จ: " + err.message);
-        }
+          alert(initialStatus === 'PENDING' ? "สมัครสำเร็จ! รอ Admin อนุมัติสิทธิ์" : "สมัครสำเร็จ!");
+          if (initialStatus === 'PENDING') await window.fbAuth.signOut(window.auth);
+        } catch (err) { alert("สมัครไม่สำเร็จ: " + err.message); }
       }
     }
 
     function applyRBACPermissions(userRole) {
       const allowedAll = userRole === 'ADMIN';
-      document.getElementById('btn-role-sale').style.display = (allowedAll || userRole === 'SALE') ? 'flex' : 'none';
       document.getElementById('btn-role-tech').style.display = (allowedAll || userRole === 'TECHNICIAN') ? 'flex' : 'none';
       document.getElementById('btn-role-bbim').style.display = (allowedAll || userRole === 'BBIM') ? 'flex' : 'none';
       document.getElementById('btn-role-all').style.display = allowedAll ? 'flex' : 'none';
-
-      const defaultView = allowedAll ? 'SALE' : userRole;
-      switchRoleView(defaultView);
+      switchRoleView(allowedAll ? 'TECHNICIAN' : userRole);
     }
 
     function switchRoleView(role) {
       currentRoleView = role;
+      const exportContainer = document.getElementById('exportControlsContainer');
+      if (exportContainer) {
+        if (role === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
+          exportContainer.style.display = 'none';
+        } else {
+          exportContainer.style.display = 'flex';
+        }
+      }
       document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-      const activeBtnMap = { 'SALE': 'btn-role-sale', 'TECHNICIAN': 'btn-role-tech', 'BBIM': 'btn-role-bbim', 'ALL': 'btn-role-all' };
+      const activeBtnMap = { 'TECHNICIAN': 'btn-role-tech', 'BBIM': 'btn-role-bbim', 'ALL': 'btn-role-all' };
       if (document.getElementById(activeBtnMap[role])) document.getElementById(activeBtnMap[role]).classList.add('active');
 
       const headers = {
-        'SALE': '<i class="fa-solid fa-user-tag"></i> ฝ่ายขาย (Sale) - ดำเนินการคำสั่งซื้อ',
-        'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ทีมช่างสนาม (Technician) - ดำเนินงานติดตั้ง',
-        'BBIM': '<i class="fa-solid fa-headset"></i> ทีมสนับสนุน (BBIM) - ตรวจสอบ TamCI & Red Zone',
-        'ALL': '<i class="fa-solid fa-layer-group"></i> Master View - ภาพรวมทุกขั้นตอน'
+        'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ช่างสนาม (Technician) - คีย์ข้อมูลคำสั่งซื้อ (100%)',
+        'BBIM': '<i class="fa-solid fa-headset"></i> สนับสนุน (BBIM) - ตรวจสอบและให้ความเห็น',
+        'ALL': '<i class="fa-solid fa-layer-group"></i> Master View - ภาพรวมระบบและการล็อกสถานะ'
       };
       document.getElementById('panel-role-header').innerHTML = headers[role];
 
       document.querySelectorAll('.role-section').forEach(sec => sec.classList.add('hidden'));
-      if (role === 'SALE') document.getElementById('section-sale').classList.remove('hidden');
-      else if (role === 'TECHNICIAN') document.getElementById('section-technician').classList.remove('hidden');
+      if (role === 'TECHNICIAN') document.getElementById('section-technician').classList.remove('hidden');
       else if (role === 'BBIM') document.getElementById('section-bbim').classList.remove('hidden');
       else if (role === 'ALL') document.getElementById('section-all').classList.remove('hidden');
-
       window.renderApp();
     }
 
-    function getGPSLocation(evt) {
-      if (!navigator.geolocation) {
-        alert("เบราว์เซอร์ของคุณไม่รองรับ GPS");
-        return;
-      }
+        function getGPSLocation(evt) {
+      if (!navigator.geolocation) { alert("เบราว์เซอร์ไม่รองรับ GPS"); return; }
+      const btn = evt.currentTarget || evt.target.closest('button');
+      const icon = btn ? btn.querySelector('i') : null;
+      const textSpan = btn ? btn.querySelector('.gps-btn-text') : null;
       
-      const btn = evt ? evt.target.closest('button') : event.target.closest('button');
-      const originalHTML = btn.innerHTML;
-      btn.innerHTML = '<i class="fa-solid fa-crosshairs fa-spin" style="color:var(--primary-color);"></i> กำลังดึงพิกัด GPS...';
-      btn.disabled = true;
+      if (icon) {
+        icon.className = 'fa-solid fa-spinner spin-icon';
+      }
+      if (textSpan) {
+        textSpan.innerText = 'กำลังดึงพิกัด GPS...';
+      }
+      if (btn) btn.disabled = true;
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          document.getElementById('custLat').value = position.coords.latitude.toFixed(6);
-          document.getElementById('custLng').value = position.coords.longitude.toFixed(6);
-          btn.innerHTML = originalHTML;
-          btn.disabled = false;
-          alert("ดึงพิกัด GPS สำเร็จ!");
-        },
-        (error) => {
-          btn.innerHTML = originalHTML;
-          btn.disabled = false;
-          alert("ไม่สามารถดึงพิกัดได้: " + error.message);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
+      navigator.geolocation.getCurrentPosition(pos => {
+        if (icon) icon.className = 'fa-solid fa-crosshairs';
+        if (textSpan) textSpan.innerText = 'ดึงพิกัด GPS อัตโนมัติ';
+        if (btn) btn.disabled = false;
+        document.getElementById('custLat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('custLng').value = pos.coords.longitude.toFixed(6);
+        alert("ดึงพิกัด GPS สำเร็จ!");
+      }, err => {
+        if (icon) icon.className = 'fa-solid fa-crosshairs';
+        if (textSpan) textSpan.innerText = 'ดึงพิกัด GPS อัตโนมัติ';
+        if (btn) btn.disabled = false;
+        alert("ดึงพิกัดไม่ได้: " + err.message);
+      }, { enableHighAccuracy: true, timeout: 10000 });
     }
 
     function initPendingUsersListener() {
       if (!window.db) return;
-      const q = window.fs.query(window.fs.collection(window.db, "users"));
-      window.fs.onSnapshot(q, (snapshot) => {
-        const pendingUsers = [];
-        const processedUsers = [];
-
-        snapshot.forEach((docSnap) => {
-          const u = { id: docSnap.id, ...docSnap.data() };
-          if (u.status === 'PENDING') {
-            pendingUsers.push(u);
-          } else if (u.status === 'APPROVED' || u.status === 'REJECTED') {
-            processedUsers.push(u);
-          }
+      window.fs.onSnapshot(window.fs.query(window.fs.collection(window.db, "users")), snap => {
+        const pending = [], processed = [];
+        snap.forEach(d => {
+          const u = { id: d.id, ...d.data() };
+          if (u.status === 'PENDING') pending.push(u);
+          else if (u.status === 'APPROVED' || u.status === 'REJECTED') processed.push(u);
         });
-
-        renderPendingAdminsUI(pendingUsers);
-        renderAdminHistoryUI(processedUsers);
+        renderPendingAdminsUI(pending);
+        renderAdminHistoryUI(processed);
       });
     }
 
     function renderPendingAdminsUI(pendingUsers) {
       const container = document.getElementById('pendingAdminsList');
       if (!container) return;
-      if (pendingUsers.length === 0) {
-        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการที่รออนุมัติในขณะนี้</p>';
-        return;
-      }
+      if (pendingUsers.length === 0) { container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการรออนุมัติ</p>'; return; }
       container.innerHTML = pendingUsers.map(u => `
         <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
-          <div>
-            <strong style="font-size: 13px; display: block;">${u.name || u.email}</strong>
-            <small style="color: var(--text-muted); font-size: 11px;">อีเมล: ${u.email} | ขอสิทธิ์: <span class="badge badge-purple">${u.role || 'USER'}</span></small>
-          </div>
+          <div><strong style="font-size: 13px;">${u.name || u.email}</strong><br><small style="color:var(--text-muted);">อีเมล: ${u.email}</small></div>
           <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-success" onclick="approveAdminUser('${u.uid}', '${u.name || u.email}')">
-              <i class="fa-solid fa-check"></i> อนุมัติ
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="rejectAdminUser('${u.uid}', '${u.name || u.email}')">
-              <i class="fa-solid fa-xmark"></i> ปฏิเสธ
-            </button>
+            <button class="btn btn-sm btn-success" onclick="updateUserStatus('${u.uid}', 'APPROVED')">อนุมัติ</button>
+            <button class="btn btn-sm btn-danger" onclick="updateUserStatus('${u.uid}', 'REJECTED')">ปฏิเสธ</button>
           </div>
         </div>
       `).join('');
@@ -927,58 +827,17 @@
     function renderAdminHistoryUI(processedUsers) {
       const container = document.getElementById('adminHistoryList');
       if (!container) return;
-      if (processedUsers.length === 0) {
-        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>';
-        return;
-      }
-
-      container.innerHTML = processedUsers.map(u => {
-        const isApproved = u.status === 'APPROVED';
-        const statusBadge = isApproved 
-          ? '<span class="badge badge-green"><i class="fa-solid fa-check-circle"></i> อนุมัติแล้ว</span>'
-          : '<span class="badge badge-red"><i class="fa-solid fa-times-circle"></i> ปฏิเสธแล้ว</span>';
-        
-        const actionBy = isApproved ? (u.approvedBy || 'Admin') : (u.rejectedBy || 'Admin');
-        const actionTime = isApproved ? (u.approvedAt || '-') : (u.rejectedAt || '-');
-        
-        return `
-          <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
-            <div>
-              <strong style="font-size: 13px; display: block;">${u.name || u.email} <small style="color:#64748b; font-weight:normal;">(${u.role || 'USER'})</small></strong>
-              <small style="color: var(--text-muted); font-size: 11px;">อีเมล: ${u.email} | ดำเนินการโดย: ${actionBy} (${actionTime})</small>
-            </div>
-            <div>
-              ${statusBadge}
-            </div>
-          </div>
-        `;
-      }).join('');
+      if (processedUsers.length === 0) { container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>'; return; }
+      container.innerHTML = processedUsers.map(u => `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
+          <div><strong style="font-size: 13px;">${u.name || u.email}</strong><br><small style="color:var(--text-muted);">สถานะ: ${u.status}</small></div>
+        </div>
+      `).join('');
     }
 
-    async function approveAdminUser(targetUid, userName) {
-      if (!confirm(`คุณต้องการอนุมัติสิทธิ์ให้แก่ "${userName}" ใช่หรือไม่?`)) return;
-      const currentAdmin = (window.currentUserProfile && window.currentUserProfile.email) ? window.currentUserProfile.email : 'Admin';
-      await window.fs.updateDoc(window.fs.doc(window.db, "users", targetUid), {
-        status: 'APPROVED',
-        approvedBy: currentAdmin,
-        approvedAt: getBangkokTimeString()
-      });
-      alert(`อนุมัติสิทธิ์แก่ ${userName} สำเร็จ!`);
-    }
-
-    async function rejectAdminUser(targetUid, userName) {
-      if (!confirm(`คุณต้องการปฏิเสธคำขอสิทธิ์ของ "${userName}" ใช่หรือไม่?`)) return;
-      const currentAdmin = (window.currentUserProfile && window.currentUserProfile.email) ? window.currentUserProfile.email : 'Admin';
-      try {
-        await window.fs.updateDoc(window.fs.doc(window.db, "users", targetUid), {
-          status: 'REJECTED',
-          rejectedBy: currentAdmin,
-          rejectedAt: getBangkokTimeString()
-        });
-        alert(`ปฏิเสธสิทธิ์ของ ${userName} เรียบร้อยแล้ว`);
-      } catch (err) {
-        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + err.message);
-      }
+    async function updateUserStatus(uid, status) {
+      await window.fs.updateDoc(window.fs.doc(window.db, "users", uid), { status: status });
+      alert("อัปเดตสถานะสำเร็จ!");
     }
 
     window.renderApp = function() {
@@ -991,50 +850,48 @@
     function updateStats() {
       const list = window.orders || [];
       document.getElementById('stat-total').innerText = list.length;
-      document.getElementById('stat-border').innerText = list.filter(o => o.isBorderArea).length;
-      document.getElementById('stat-pending').innerText = list.filter(o => o.status === 'WAITING_TAMCI_VERIFY').length;
-      document.getElementById('stat-success').innerText = list.filter(o => o.status === 'INSTALLED_SUCCESS').length;
-      document.getElementById('stat-rejected').innerText = list.filter(o => ['CANCELLED_CROSS_ZONE', 'REJECTED_RED_ZONE', 'REJECTED_LMR_SOA'].includes(o.status)).length;
+      document.getElementById('stat-pending').innerText = list.filter(o => o.status === 'PENDING_BBIM').length;
+      document.getElementById('stat-success').innerText = list.filter(o => o.status === 'BBIM_APPROVED').length;
+      document.getElementById('stat-rejected').innerText = list.filter(o => o.status === 'BBIM_REJECTED').length;
     }
 
-    function renderTable() {
+        function renderTable() {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
       let list = window.orders || [];
-
-      // กรองข้อมูลให้ Sale เห็นเฉพาะรายการของตัวเอง[cite: 4, 8]
-      if (window.currentUserProfile && window.currentUserProfile.role === 'SALE' && window.auth && window.auth.currentUser) {
-        list = list.filter(o => o.userId === window.auth.currentUser.uid || o.createdBy === window.auth.currentUser.email);
+      
+      const searchKeyword = document.getElementById('searchHistoryInput').value.trim().toLowerCase();
+      if (searchKeyword) {
+        list = list.filter(o => 
+          (o.customer && o.customer.toLowerCase().includes(searchKeyword)) ||
+          (o.internetNo && o.internetNo.toLowerCase().includes(searchKeyword)) ||
+          (o.subdistrict && o.subdistrict.toLowerCase().includes(searchKeyword)) ||
+          (o.province && o.province.toLowerCase().includes(searchKeyword)) ||
+          (o.status && o.status.toLowerCase().includes(searchKeyword)) ||
+          (o.id && o.id.toLowerCase().includes(searchKeyword))
+        );
       }
 
-      if (list.length > 0 && !selectedOrderId) {
-        selectedOrderId = list[0].id;
-      }
+      if (list.length > 0 && !selectedOrderId) selectedOrderId = list[0].id;
 
       list.forEach(order => {
         const isSelected = order.id === selectedOrderId;
         const statusInfo = STATUS_MAP[order.status] || { text: order.status, class: 'badge-gray' };
-        
         const tr = document.createElement('tr');
         if (isSelected) tr.classList.add('selected');
         tr.onclick = () => selectOrder(order.id);
 
-        let imgTag = '';
-        const imgList = Array.isArray(order.imageUrls) ? order.imageUrls : (order.imageUrl ? [order.imageUrl] : []);
-        if (imgList.length > 0) {
-          imgTag = `<span style="color:var(--primary-color); font-size:12px; cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); openAllImagesModal(${JSON.stringify(imgList).replace(/"/g, '&quot;')}, '${order.id}')">
-                      <i class="fa-solid fa-image"></i> ดู ${imgList.length} รูป
-                    </span>`;
-        } else {
-          imgTag = `<span style="color:var(--text-muted); font-size:11px;">ไม่มีรูป</span>`;
-        }
+        const imgList = order.imageUrls || [];
+        const imgTag = imgList.length > 0 ? `<span style="color:var(--primary-color); cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); openAllImagesModal(${JSON.stringify(imgList).replace(/"/g, '&quot;')}, '${order.id}')"><i class="fa-solid fa-image"></i> ${imgList.length} รูป</span>` : 'ไม่มีรูป';
+
+        const lockBadge = order.isLocked ? 
+          `<span style="color:#ef4444; font-size:11px; margin-left:4px; font-weight:600;" title="ล็อกโดย: ${order.lockedByName || 'ผู้อื่น'}"><i class="fa-solid fa-lock"></i> ${order.lockedByName || 'Locked'}</span>` : '';
 
         tr.innerHTML = `
-          <td><strong>${order.id}</strong></td>
+          <td><strong>${order.id}</strong> ${lockBadge}</td>
           <td>${order.customer}<br><small style="color:var(--primary-color);">${order.internetNo || '-'}</small></td>
-          <td>${order.subDistrict}</td>
+          <td>${order.region} > ${order.province} > ${order.district} > ${order.subdistrict}</td>
           <td>${imgTag}</td>
-          <td>${order.isBorderArea ? '<span class="badge badge-orange"><i class="fa-solid fa-flag"></i> 72 ตำบล</span>' : '<span class="badge badge-gray">ปกติ</span>'}</td>
           <td><span class="badge ${statusInfo.class}">${statusInfo.text}</span></td>
           <td><button class="btn btn-sm btn-secondary" onclick="selectOrder('${order.id}')">ดูข้อมูล</button></td>
         `;
@@ -1049,40 +906,76 @@
       renderAuditLogs();
     }
 
-    function renderRolePanels() {
-      const list = window.orders || [];
-      const selectedOrder = list.find(o => o.id === selectedOrderId);
-      const techContainer = document.getElementById('tech-action-container');
+            function renderRolePanels() {
+      const selectedOrder = (window.orders || []).find(o => o.id === selectedOrderId);
       
-      if (selectedOrder) {
-        let techActionsHtml = '';
-        if (['REGISTERED', 'PROSPECT_CREATED', 'DISPATCHED'].includes(selectedOrder.status)) {
-          techActionsHtml = `<button class="btn btn-primary" onclick="handleTechAcceptJob('${selectedOrder.id}')">ช่างกดรับงาน (Accept Job)</button>`;
-        } else if (selectedOrder.status === 'WAITING_TAMCI_VERIFY') {
-          techActionsHtml = `<div class="badge badge-yellow" style="padding: 10px; width:100%;">รอ BBIM อนุมัติ TamCI</div>`;
-        } else if (selectedOrder.status === 'READY_TO_INSTALL') {
-          techActionsHtml = `
-            <div style="display: flex; gap: 10px;">
-              <button class="btn btn-success" onclick="handleTechComplete('${selectedOrder.id}', true)">ติดตั้งสำเร็จ</button>
-              <button class="btn btn-danger" onclick="handleTechComplete('${selectedOrder.id}', false)">ปฏิเสธงาน</button>
-            </div>`;
-        } else {
-          techActionsHtml = `<p class="text-muted">สิ้นสุดกระบวนการแล้ว</p>`;
-        }
-        techContainer.innerHTML = `<div style="background: var(--bg-light); padding: 16px; border-radius: 6px;"><h4>คำสั่งซื้อ: ${selectedOrder.id}</h4><p>ลูกค้า: ${selectedOrder.customer}</p><div style="margin-top: 15px;">${techActionsHtml}</div></div>`;
-      } else {
-        techContainer.innerHTML = '<p class="text-muted">กรุณาเลือก Order จากตาราง</p>';
-      }
-
+      // BBIM PANEL
       const bbimContainer = document.getElementById('bbim-action-container');
       if (selectedOrder) {
-        let bbimHtml = selectedOrder.status === 'WAITING_TAMCI_VERIFY' ? `
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="btn btn-danger" onclick="handleBBIMDecision('${selectedOrder.id}', 'CROSS_ZONE')">พบขายข้ามโซน -> Cancel</button>
-            <button class="btn btn-warning" onclick="handleBBIMDecision('${selectedOrder.id}', 'RED_ZONE')">อยู่ใน Red Zone -> Reject</button>
-            <button class="btn btn-success" onclick="handleBBIMDecision('${selectedOrder.id}', 'APPROVE')">พิกัดปลอดภัย -> Approve</button>
-          </div>` : `<p class="text-muted">ไม่อยู่ในสถานะรอตรวจสอบโดย BBIM</p>`;
-        bbimContainer.innerHTML = `<div style="background: var(--bg-light); padding: 16px; border-radius: 6px;"><h4>ตรวจสอบ: ${selectedOrder.id}</h4><div style="margin-top: 15px;">${bbimHtml}</div></div>`;
+        const isLocked = selectedOrder.isLocked;
+        const isProcessed = selectedOrder.status !== 'PENDING_BBIM'; // สถานะถูกอนุมัติหรือไม่อนุมัติไปแล้ว
+        const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
+        const currentUid = currentUser ? currentUser.uid : '';
+        const userRole = window.currentUserProfile ? window.currentUserProfile.role : '';
+        const isAdmin = userRole === 'ADMIN';
+        const isBBIM = userRole === 'BBIM';
+
+        // ปิดการกระทำถ้า: อนุมัติ/ไม่อนุมัติแล้ว OR ยังไม่ได้ล็อก OR ล็อกโดยผู้อื่น (ที่ไม่ใช่ Admin)
+        const isActionDisabled = isProcessed || !isLocked || (!isAdmin && selectedOrder.lockedBy !== currentUid);
+        
+        let canLock = (isAdmin || isBBIM) && !isProcessed;
+        let canUnlock = isAdmin || (isBBIM && selectedOrder.lockedBy === currentUid);
+        
+        let lockButtonHtml = '';
+        if (!isProcessed) {
+          if (!isLocked && canLock) {
+            lockButtonHtml = `<button class="btn btn-warning" onclick="toggleLockOrder('${selectedOrder.id}', true)"><i class="fa-solid fa-lock"></i> ล็อกสถานะงาน</button>`;
+          } else if (isLocked) {
+            if (canUnlock) {
+              lockButtonHtml = `<button class="btn btn-secondary" onclick="toggleLockOrder('${selectedOrder.id}', false)"><i class="fa-solid fa-lock-open"></i> ปลดล็อกสถานะ</button>`;
+            } else {
+              lockButtonHtml = `<span class="badge badge-red" style="padding: 8px 12px; font-size: 13px;"><i class="fa-solid fa-lock"></i> ถูกล็อกโดย: ${selectedOrder.lockedByName || 'ผู้อื่น'}</span>`;
+            }
+          }
+        }
+
+        let lockInfoNotice = '';
+        if (isProcessed) {
+          lockInfoNotice = `
+            <div style="margin-top: 12px; padding: 10px; background: #e2e8f0; border-radius: 6px; color: #475569; font-size: 13px; font-weight: 500;">
+              <i class="fa-solid fa-circle-info" style="color: var(--primary-color);"></i> รายการนี้ทำการ <strong>${selectedOrder.status === 'BBIM_APPROVED' ? 'อนุมัติเรียบร้อยแล้ว' : 'ปฏิเสธ / ไม่อนุมัติเรียบร้อยแล้ว'}</strong> (ไม่สามารถแก้ไขได้อีก)
+            </div>`;
+        } else if (!isLocked) {
+          lockInfoNotice = `
+            <div style="margin-top: 12px; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500;">
+              <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำแนะนำ:</strong> กรุณากดปุ่ม <strong>"ล็อกสถานะงาน"</strong> ก่อนทำรายการอนุมัติหรือไม่อนุมัติ
+            </div>`;
+        } else {
+          lockInfoNotice = `
+            <p style="margin-top: 6px; font-size: 13px; color: #dc2626; font-weight: 600;">
+              <i class="fa-solid fa-user-lock"></i> สถานะงานขณะนี้: ล็อกโดย ${selectedOrder.lockedByName || 'ผู้อื่น'}
+            </p>`;
+        }
+
+        bbimContainer.innerHTML = `
+          <div style="background: var(--bg-light); padding: 16px; border-radius: 6px;">
+            <h4>Order: ${selectedOrder.id}</h4>
+            <p><strong>ลูกค้า:</strong> ${selectedOrder.customer} (Internet: ${selectedOrder.internetNo})</p>
+            <p><strong>ที่อยู่:</strong> ${selectedOrder.region} / ${selectedOrder.province} / ${selectedOrder.district} / ${selectedOrder.subdistrict}</p>
+            <p><strong>Note จากช่าง:</strong> <span style="color: #d97706;">${selectedOrder.techNote || 'ไม่มีหมายเหตุ'}</span></p>
+            ${lockInfoNotice}
+            
+            <div style="margin-top: 15px;">
+              <label><strong>Note ตอบกลับจาก BBIM แจ้งช่าง:</strong></label>
+              <textarea id="bbimResponseNote" class="form-control" rows="2" placeholder="ระบุเหตุผล หรือข้อเสนอแนะ..." ${isActionDisabled ? 'disabled' : ''}>${selectedOrder.bbimNote || ''}</textarea>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center;">
+              <button class="btn btn-success" onclick="handleBBIMAction('${selectedOrder.id}', 'APPROVE')" ${isActionDisabled ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i class="fa-solid fa-check"></i> อนุมัติ</button>
+              <button class="btn btn-danger" onclick="handleBBIMAction('${selectedOrder.id}', 'REJECT')" ${isActionDisabled ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
+              ${lockButtonHtml}
+            </div>
+          </div>`;
       } else {
         bbimContainer.innerHTML = '<p class="text-muted">กรุณาเลือก Order จากตาราง</p>';
       }
@@ -1091,82 +984,81 @@
     function renderAuditLogs() {
       const container = document.getElementById('auditLogContainer');
       const orderIdSpan = document.getElementById('selected-order-id');
-      const list = window.orders || [];
-      const selectedOrder = list.find(o => o.id === selectedOrderId);
+      const noteBox = document.getElementById('bbimNoteDisplayBox');
+      const selectedOrder = (window.orders || []).find(o => o.id === selectedOrderId);
 
       if (!selectedOrder) {
         orderIdSpan.innerText = '[กรุณาเลือก Order]';
+        noteBox.style.display = 'none';
         container.innerHTML = '<div class="log-item"><span class="log-text">ไม่มีข้อมูล</span></div>';
         return;
       }
+
       orderIdSpan.innerText = selectedOrder.id + ' (' + selectedOrder.customer + ')';
+      
+      if (selectedOrder.bbimNote) {
+        noteBox.style.display = 'block';
+        noteBox.innerHTML = `<strong><i class="fa-solid fa-comment-dots" style="color:var(--primary-color);"></i> Note / ข้อความจาก BBIM แจ้งช่าง:</strong> ${selectedOrder.bbimNote}`;
+      } else {
+        noteBox.style.display = 'none';
+      }
+
       container.innerHTML = '';
       (selectedOrder.logs || []).forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `<span class="log-time">${log.time}</span><span class="log-role role-${(log.role||'').toLowerCase()}">${log.role}</span><span class="log-text">${log.text}</span>`;
-        container.appendChild(item);
+        const rLower = (log.role || '').toLowerCase();
+        const roleClass = rLower.includes('tech') ? 'role-technician' : (rLower.includes('bbim') ? 'role-bbim' : 'role-system');
+        container.innerHTML += `<div class="log-item"><span class="log-time">${log.time}</span><span class="log-role ${roleClass}">${log.role}</span><span class="log-text">${log.text}</span></div>`;
       });
     }
 
-    // ⭐ เมื่อกดปุ่ม "ลงทะเบียนคำสั่งซื้อ" ให้เปิด Modal Review ขึ้นมา
+    // REGISTRATION FORM (TECH 100%)
     function handleRegisterOrder(e) {
       e.preventDefault();
-      
-      const name = document.getElementById('custName').value;
-      const internetNo = document.getElementById('internetNo').value;
-      const subDist = document.getElementById('subDistrict').value || document.getElementById('searchSubDistrict').value;
-      const addr = document.getElementById('custAddress').value;
-      const lat = document.getElementById('custLat').value || '-';
-      const lng = document.getElementById('custLng').value || '-';
-      const isBorder = (typeof isSelectedBorderArea !== 'undefined' ? isSelectedBorderArea : false) || BORDER_DISTRICTS.some(b => subDist.includes(b));
+      const region = document.getElementById('selectRegion').value;
+      const province = document.getElementById('selectProvince').value;
+      const district = document.getElementById('selectDistrict').value;
+      const subdistrict = document.getElementById('selectSubdistrict').value;
 
       pendingOrderData = {
-        customer: name,
-        internetNo: internetNo,
-        subDistrict: subDist,
-        address: addr,
-        lat: lat,
-        lng: lng,
-        imageUrls: currentBase64Images.length > 0 ? [...currentBase64Images] : [],
-        isBorderArea: isBorder
+        customer: document.getElementById('custName').value,
+        internetNo: document.getElementById('internetNo').value,
+        region: region, province: province, district: district, subdistrict: subdistrict,
+        address: document.getElementById('custAddress').value,
+        lat: document.getElementById('custLat').value || '-',
+        lng: document.getElementById('custLng').value || '-',
+        imageUrls: [...currentBase64Images],
+        techNote: document.getElementById('techNote').value,
+        isLocked: false
       };
 
-      const reviewContainer = document.getElementById('reviewOrderContent');
-      reviewContainer.innerHTML = `
-        <div><strong>ชื่อ-นามสกุล ลูกค้า:</strong> ${name}</div>
-        <div><strong>หมายเลขอินเทอร์เน็ต:</strong> <span style="color: var(--primary-color);">${internetNo}</span></div>
-        <div><strong>พื้นที่ติดตั้ง:</strong> ${subDist} ${isBorder ? '<span class="badge badge-orange"><i class="fa-solid fa-flag"></i> 72 ตำบลเสี่ยง</span>' : ''}</div>
-        <div><strong>ที่อยู่โดยละเอียด:</strong> ${addr}</div>
-        <div><strong>พิกัด GPS:</strong> Lat: ${lat}, Lng: ${lng}</div>
-        <div><strong>รูปภาพหน้างาน:</strong> ${currentBase64Images.length > 0 ? `<span style="color: var(--primary-color);"><i class="fa-solid fa-image"></i> แนบแล้ว ${currentBase64Images.length} รูป</span>` : '<span style="color: #94a3b8;">ไม่มีรูปภาพ</span>'}</div>
+      document.getElementById('reviewOrderContent').innerHTML = `
+        <div><strong>ชื่อลูกค้า:</strong> ${pendingOrderData.customer}</div>
+        <div><strong>Internet No:</strong> ${pendingOrderData.internetNo}</div>
+        <div><strong>พื้นที่:</strong> ${region} > ${province} > ${district} > ${subdistrict}</div>
+        <div><strong>ที่อยู่:</strong> ${pendingOrderData.address}</div>
+        <div><strong>Note จากช่าง:</strong> ${pendingOrderData.techNote || '-'}</div>
+        <div><strong>รูปภาพหน้างาน:</strong> ${pendingOrderData.imageUrls.length} รูป</div>
       `;
-
       document.getElementById('reviewOrderModal').classList.remove('hidden');
     }
 
-    function closeReviewModal() {
-      document.getElementById('reviewOrderModal').classList.add('hidden');
-    }
+    function closeReviewModal() { document.getElementById('reviewOrderModal').classList.add('hidden'); }
 
-    // ⭐ กดยืนยันใน Modal แล้วบันทึกลง Firestore จริง
     async function confirmAndSaveOrder() {
       closeReviewModal();
       if (!pendingOrderData) return;
-
       try {
         const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
         const timeNow = getBangkokTimeString();
-        const currentUserProfile = window.currentUserProfile || { name: 'Sale' };
-        const currentAuthUser = (window.auth && window.auth.currentUser) ? window.auth.currentUser : null;
+        const userProfile = window.currentUserProfile || { name: 'Technician' };
 
         const newOrder = {
           id: newId,
           ...pendingOrderData,
-          status: "REGISTERED",
-          userId: currentAuthUser ? currentAuthUser.uid : "",
-          createdBy: currentAuthUser ? currentAuthUser.email : "",
-          logs: [{ time: timeNow, role: "SALE", text: `ลงทะเบียนคำสั่งซื้อใหม่โดย ${currentUserProfile.name}` }]
+          status: "PENDING_BBIM",
+          bbimNote: "",
+          createdAtString: new Date().toISOString().split('T')[0],
+          logs: [{ time: timeNow, role: "TECHNICIAN", text: `ช่าง ${userProfile.name} บันทึกข้อมูลและส่งให้ BBIM ตรวจสอบ` }]
         };
 
         if (window.db && window.fs) {
@@ -1179,58 +1071,115 @@
         selectedOrderId = newId;
         document.getElementById('orderForm').reset();
         currentBase64Images = [];
-        const previewList = document.getElementById('imagePreviewList');
-        if (previewList) previewList.innerHTML = '';
-        const previewContainer = document.getElementById('imagePreviewContainer');
-        if (previewContainer) previewContainer.style.display = 'none';
+        document.getElementById('imagePreviewContainer').style.display = 'none';
         pendingOrderData = null;
-        
-        alert("ลงทะเบียนคำสั่งซื้อสำเร็จ!");
+        alert("ส่งข้อมูลให้ BBIM สำเร็จ!");
         window.renderApp();
-      } catch (err) {
-        console.error("Error in confirmAndSaveOrder:", err);
-        alert("เกิดข้อผิดพลาดในการบันทึกคำสั่งซื้อ: " + err.message);
-      }
+      } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
     }
 
-    async function handleTechAcceptJob(orderId) {
+    // BBIM ACTIONS
+    async function handleBBIMAction(orderId, action) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
-      const timeNow = getBangkokTimeString();
-      const newLogs = [...(order.logs || []), { time: timeNow, role: "TECHNICIAN", text: "ช่างกดรับงานติดตั้ง" }];
-      let newStatus = order.isBorderArea ? "WAITING_TAMCI_VERIFY" : "READY_TO_INSTALL";
-
-      if (window.db && window.fs) {
-        await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), { status: newStatus, logs: newLogs });
+      if (order.status !== 'PENDING_BBIM') {
+        alert("❌ รายการนี้ได้รับการอนุมัติหรือไม่อนุมัติไปแล้ว ไม่สามารถแก้ไขได้อีก");
+        return;
       }
-    }
-
-    async function handleTechComplete(orderId, isSuccess) {
-      const order = (window.orders || []).find(o => o.id === orderId);
-      if (!order) return;
-      const timeNow = getBangkokTimeString();
-      const newLogs = [...(order.logs || []), { time: timeNow, role: "TECHNICIAN", text: isSuccess ? "ติดตั้งสำเร็จ" : "ปฏิเสธงาน" }];
-      if (window.db && window.fs) {
-        await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), { status: isSuccess ? "INSTALLED_SUCCESS" : "REJECTED_LMR_SOA", logs: newLogs });
+      if (!order.isLocked) {
+        alert("❌ กรุณากด 'ล็อกสถานะงาน' ก่อนทำรายการอนุมัติหรือปฏิเสธทุกครั้ง");
+        return;
       }
-    }
-
-    async function handleBBIMDecision(orderId, decision) {
-      const order = (window.orders || []).find(o => o.id === orderId);
-      if (!order) return;
-      
+      const noteText = document.getElementById('bbimResponseNote').value;
       const timeNow = getBangkokTimeString();
-      const newLogs = [...(order.logs || []), { time: timeNow, role: "BBIM", text: "BBIM ตรวจสอบผ่าน TamCI" }];
-      let newStatus = decision === 'APPROVE' ? "READY_TO_INSTALL" : (decision === 'CROSS_ZONE' ? "CANCELLED_CROSS_ZONE" : "REJECTED_RED_ZONE");
+      const newStatus = action === 'APPROVE' ? 'BBIM_APPROVED' : 'BBIM_REJECTED';
+      const actionText = action === 'APPROVE' ? 'BBIM อนุมัติงานสำเร็จ' : 'BBIM ไม่อนุมัติงาน';
+
+      const newLogs = [...(order.logs || []), { time: timeNow, role: "BBIM", text: `${actionText} (Note: ${noteText || 'ไม่มี'})` }];
 
       if (window.db && window.fs) {
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), {
           status: newStatus,
-          isCrossZone: decision === 'CROSS_ZONE',
-          isRedZone: decision === 'RED_ZONE',
+          bbimNote: noteText,
           logs: newLogs
         });
+        alert("บันทึกผลการตรวจสอบเรียบร้อยแล้ว!");
       }
+    }
+
+    // ADMIN LOCK / UNLOCK
+    async function toggleLockOrder(orderId, lockState) {
+      const order = (window.orders || []).find(o => o.id === orderId);
+      if (!order) return;
+      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
+      const currentUid = currentUser ? currentUser.uid : '';
+      const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
+      const isAdmin = userProfile.role === 'ADMIN';
+      const isBBIM = userProfile.role === 'BBIM';
+
+      if (!isAdmin && !isBBIM) {
+        alert("คุณไม่มีสิทธิ์ในการล็อกหรือปลดล็อกสถานะ");
+        return;
+      }
+
+      // If unlocking, check if BBIM is the original locker (unless Admin)
+      if (!lockState && !isAdmin && order.lockedBy && order.lockedBy !== currentUid) {
+        alert("❌ คุณไม่สามารถปลดล็อกได้ เนื่องจากสถานะถูกล็อกโดย User ท่านอื่น (เฉพาะ Admin หรือ User ผู้ล็อกเดิมเท่านั้นที่ปลดได้)");
+        return;
+      }
+
+      if (window.db && window.fs) {
+        const updatePayload = {
+          isLocked: lockState,
+          lockedBy: lockState ? currentUid : "",
+          lockedByName: lockState ? (userProfile.name || currentUser.email) : ""
+        };
+        await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
+        alert(lockState ? "ล็อกสถานะงานเรียบร้อย" : "ปลดล็อกสถานะงานเรียบร้อย");
+      }
+    }
+
+    // EXPORT EXCEL BY DATE
+    function exportToExcel() {
+      if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
+        alert("สิทธิ์ช่างสนาม (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
+        return;
+      }
+      const startDate = document.getElementById('filterStartDate').value;
+      const endDate = document.getElementById('filterEndDate').value;
+      let list = window.orders || [];
+
+      if (startDate && endDate) {
+        list = list.filter(o => {
+          const d = o.createdAtString || '';
+          return d >= startDate && d <= endDate;
+        });
+      }
+
+      if (list.length === 0) {
+        alert("ไม่มีข้อมูลในช่วงวันที่เลือกสำหรับ Export Excel");
+        return;
+      }
+
+      const excelData = list.map(o => ({
+        "Order ID": o.id,
+        "ชื่อลูกค้า": o.customer,
+        "Internet No": o.internetNo,
+        "ภาค": o.region,
+        "จังหวัด": o.province,
+        "อำเภอ": o.district,
+        "ตำบล": o.subdistrict,
+        "ที่อยู่": o.address,
+        "Note จากช่าง": o.techNote || "",
+        "Note จาก BBIM": o.bbimNote || "",
+        "สถานะ": o.status,
+        "วันที่สร้าง": o.createdAtString || ""
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Report");
+      XLSX.writeFile(workbook, `Order_Report_${startDate || 'All'}_to_${endDate || 'All'}.xlsx`);
     }
   </script>
 </body>
