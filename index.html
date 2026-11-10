@@ -1207,11 +1207,12 @@
         const isAdmin = userProfile.role === 'ADMIN';
         const isBBIM = userProfile.role === 'BBIM';
 
-        const isTheLocker = isAdmin || !selectedOrder.lockedBy || selectedOrder.lockedBy === currentUid;
+        const hasValidUser = currentUid !== '';
+        const isTheLocker = isAdmin || (hasValidUser && selectedOrder.lockedBy === currentUid);
         const isActionDisabled = isProcessed || !isLocked || !isTheLocker;
         
-        let canLock = (isAdmin || isBBIM) && !isProcessed;
-        let canUnlock = isAdmin || isBBIM || isLocked;
+        let canLock = (isAdmin || isBBIM) && !isProcessed && !isLocked;
+        let canUnlock = isAdmin || (hasValidUser && selectedOrder.lockedBy === currentUid);
         
         let lockButtonHtml = '';
         if (!isProcessed) {
@@ -1358,6 +1359,7 @@
           ...pendingOrderData,
           status: "PENDING_BBIM",
           bbimNote: "",
+          createdAtText: timeNow,
           createdAtString: new Date().toISOString().split('T')[0],
           logs: [{ time: timeNow, role: "TECHNICIAN", text: `ช่าง ${userProfile.name} บันทึกข้อมูลและส่งให้ BBIM ตรวจสอบ` }]
         };
@@ -1408,7 +1410,7 @@
         return;
       }
 
-      if (!isAdmin && order.lockedBy && order.lockedBy !== currentUid) {
+      if (!isAdmin && order.lockedBy && (order.lockedBy !== currentUid || !currentUid)) {
         alert("❌ รายการนี้ถูกล็อกโดยผู้ใช้อื่น คุณไม่สามารถทำรายการอนุมัติหรือไม่อนุมัติได้");
         return;
       }
@@ -1545,7 +1547,7 @@
           "Region": mappedRegion,
           "Latitude": o.lat || "",
           "Longitude": o.lng || "",
-          "Request Date Time": o.createdAt || "",
+          "Request Date Time": o.createdAtText || (o.createdAt && o.createdAt.seconds ? new Date(o.createdAt.seconds * 1000).toLocaleString("sv-SE").replace("T", " ") : (o.createdAt || "")),
           "Accept job Date Time": o.lockedAt || "",
           "Close job Date Time": o.processedAt || "",
           "ผลการตรวจสอบ": o.status === 'BBIM_APPROVED' ? 'สามารถติดตั้งได้' : (o.status === 'BBIM_REJECTED' ? 'ไม่อนุมัติ' : o.status || ""),
