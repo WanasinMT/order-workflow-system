@@ -151,9 +151,13 @@
             <input type="text" id="authName" class="form-control" placeholder="เช่น นายช่าง สมชาย" />
           </div>
           <div class="form-group">
+            <label><i class="fa-solid fa-phone"></i> เบอร์ติดต่อช่าง / ผู้ใช้งาน</label>
+            <input type="tel" id="authPhone" class="form-control" placeholder="เช่น 0812345678" />
+          </div>
+          <div class="form-group">
             <label><i class="fa-solid fa-user-gear"></i> กำหนดบทบาท (Role)</label>
             <select id="authRole" class="form-control">
-              <option value="TECHNICIAN">ช่าง (Technician - คีย์ข้อมูล 100%)</option>
+              <option value="TECHNICIAN">ช่างสนาม (Technician - คีย์ข้อมูล 100%)</option>
               <option value="BBIM">ทีมสนับสนุน (BBIM)</option>
               <option value="ADMIN">ผู้ดูแลระบบ (Admin - ปลดล็อกสถานะ)</option>
             </select>
@@ -379,14 +383,14 @@
 
           <!-- BBIM PANEL -->
           <div id="section-bbim" class="role-section hidden">
-            <h3 class="section-title"></i> ตรวจสอบคำขอโดย BBIM</h3>
+            <h3 class="section-title"><i class="fa-solid fa-headset"></i> ตรวจสอบคำขอโดย BBIM</h3>
             <p class="text-muted">BBIM เห็นข้อมูลทั้งหมดที่ช่างกรอกเข้ามา พร้อมประเมินและใส่ Note แจ้งช่างกลับได้</p>
             <div id="bbim-action-container"></div>
           </div>
 
           <!-- ALL VIEW (ADMIN / MASTER PANEL) -->
           <div id="section-all" class="role-section hidden">
-            <h3 class="section-title"></i> Master Command & Admin Panel</h3>
+            <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Master Command & Admin Panel</h3>
             <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบสามารถปลดล็อกสถานะงาน และจัดการสิทธิ์ผู้ใช้งาน</p>
             
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
@@ -419,7 +423,7 @@
           <!-- EXPORT EXCEL & SEARCH CONTROLS -->
           <div id="exportControlsContainer" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <input type="date" id="filterStartDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
-            <span style="color: #000; font-size: 12px;">ถึง</span>
+            <span style="color: #fff; font-size: 12px;">ถึง</span>
             <input type="date" id="filterEndDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
             <button class="btn btn-sm btn-success" onclick="exportToExcel()" style="background: #10b981; border: none; color: #fff;">
               <i class="fa-solid fa-file-excel"></i> Export Excel
@@ -483,78 +487,330 @@
     // ข้อมูลโครงสร้างที่อยู่ (Region -> Province -> District -> Subdistrict)
     const THAILAND_REGIONS_DATA = {
       "ภาคเหนือ": {
-        "ตาก": {
-          "เมืองตาก": ["ระแหง", "หนองหลวง", "เชียงเงิน", "หัวเดียด", "หนองบัวเหนือ", "หนองบัวใต้", "วังประจบ", "ตากออก", "น้ำรึม", "วังหิน", "แม่ท้อ", "ป่ามะม่วง", "โป่งแดง", "ไม้งาม"],
-          "แม่สอด": ["แม่สอด", "แม่กุ", "แม่ปะ", "มหาวัน", "แม่ตาว", "ท่าสายลวด", "พระธาตุผาแดง", "พะวอ", "ด่านแม่แฉลบ", "ช่องแคบ"],
-          "แม่ระมาด": ["แม่ระมาด", "ขะเนจื้อ", "แม่ชะแว", "พระธาตุ", "สามหมื่น"],
-          "ท่าสองยาง": ["ท่าสองยาง", "แม่ต้าน", "แม่สอง", "แม่หละ", "แม่อุสุ"],
-          "บ้านตาก": ["ตากตก", "ตากออก", "สมอโคน", "โป่งแดง", "เกาะตะเภา"],
-          "สามเงา": ["สามเงา", "ย่านยาว", "บ้านเงา", "วังจันทร์", "วังหมัน"],
-          "อุ้มผาง": ["อุ้มผาง", "หนองหลวง", "โมโกร", "แม่กลอง", "แม่จัน"],
-          "พบพระ": ["พบพระ", "วาเล่ย์", "ช่องแคบ", "รวมไทยพัฒนา", "คีรีราษฎร์"],
-          "วังเจ้า": ["เชียงทอง", "วังหิน", "นาโบสถ์", "ประดาง"]
-        },
-        "เชียงใหม่": {
-          "เมืองเชียงใหม่": ["ศรีภูมิ", "พระสิงห์", "หายยา", "ช้างม่อย", "ช้างคลาน", "วัดเกต", "ช้างเผือก", "สุเทพ", "แม่เหียะ", "ป่าแดด", "หนองหอย", "ท่าศาลา", "หนองป่าครั่ง", "ฟ้าฮ่าม", "ป่าตัน", "สันผีเสื้อ"]
-        },
-        "เชียงราย": {
-          "เมืองเชียงราย": ["เวียง", "รอบเวียง", "บ้านดู่", "นางแล", "แม่ข้าวต้ม", "แม่ยาว", "ห้วยชมภู", "ห้วยสัก", "แม่กรณ์", "ดอยฮาง", "ท่าสาย", "ป่าอ้อดอนชัย", "ทุ่งต้อม", "สันทราย", "ริมกก"],
-          "แม่สาย": ["แม่สาย", "ห้วยไคล้", "เกาะช้าง", "โป่งผา", "โป่งงาม", "เวียงพางคำ", "บ้านด้าย"]
-        }
+            "ตาก": {
+                  "เมืองตาก": [
+                        "ระแหง",
+                        "หนองหลวง",
+                        "เชียงเงิน",
+                        "หัวเดียด",
+                        "หนองบัวเหนือ",
+                        "หนองบัวใต้",
+                        "วังประจบ",
+                        "ตากออก",
+                        "น้ำรึม",
+                        "วังหิน",
+                        "แม่ท้อ",
+                        "ป่ามะม่วง",
+                        "โป่งแดง",
+                        "ไม้งาม"
+                  ],
+                  "แม่สอด": [
+                        "แม่สอด",
+                        "แม่กุ",
+                        "แม่ปะ",
+                        "มหาวัน",
+                        "แม่ตาว",
+                        "ท่าสายลวด",
+                        "พระธาตุผาแดง",
+                        "พะวอ",
+                        "ด่านแม่แฉลบ",
+                        "ช่องแคบ"
+                  ],
+                  "แม่ระมาด": [
+                        "แม่ระมาด",
+                        "ขะเนจื้อ",
+                        "แม่ชะแว",
+                        "พระธาตุ",
+                        "สามหมื่น"
+                  ],
+                  "ท่าสองยาง": [
+                        "ท่าสองยาง",
+                        "แม่ต้าน",
+                        "แม่สอง",
+                        "แม่หละ",
+                        "แม่อุสุ"
+                  ],
+                  "บ้านตาก": [
+                        "ตากตก",
+                        "ตากออก",
+                        "สมอโคน",
+                        "โป่งแดง",
+                        "เกาะตะเภา"
+                  ],
+                  "สามเงา": [
+                        "สามเงา",
+                        "ย่านยาว",
+                        "บ้านเงา",
+                        "วังจันทร์",
+                        "วังหมัน"
+                  ],
+                  "อุ้มผาง": [
+                        "อุ้มผาง",
+                        "หนองหลวง",
+                        "โมโกร",
+                        "แม่กลอง",
+                        "แม่จัน"
+                  ],
+                  "พบพระ": [
+                        "พบพระ",
+                        "วาเล่ย์",
+                        "ช่องแคบ",
+                        "รวมไทยพัฒนา",
+                        "คีรีราษฎร์"
+                  ],
+                  "วังเจ้า": [
+                        "เชียงทอง",
+                        "วังหิน",
+                        "นาโบสถ์",
+                        "ประดาง"
+                  ]
+            },
+            "เชียงใหม่": {
+                  "เมืองเชียงใหม่": [
+                        "ศรีภูมิ",
+                        "พระสิงห์",
+                        "หายยา",
+                        "ช้างม่อย",
+                        "ช้างคลาน",
+                        "วัดเกต",
+                        "ช้างเผือก",
+                        "สุเทพ",
+                        "แม่เหียะ",
+                        "ป่าแดด",
+                        "หนองหอย",
+                        "ท่าศาลา",
+                        "หนองป่าครั่ง",
+                        "ฟ้าฮ่าม",
+                        "ป่าตัน",
+                        "สันผีเสื้อ"
+                  ]
+            },
+            "เชียงราย": {
+                  "เมืองเชียงราย": [
+                        "เวียง",
+                        "รอบเวียง",
+                        "บ้านดู่",
+                        "นางแล",
+                        "แม่ข้าวต้ม",
+                        "แม่ยาว",
+                        "ห้วยชมภู",
+                        "ห้วยสัก",
+                        "แม่กรณ์",
+                        "ดอยฮาง",
+                        "ท่าสาย",
+                        "ป่าอ้อดอนชัย",
+                        "ทุ่งต้อม",
+                        "สันทราย",
+                        "ริมกก"
+                  ],
+                  "แม่สาย": [
+                        "แม่สาย",
+                        "ห้วยไคล้",
+                        "เกาะช้าง",
+                        "โป่งผา",
+                        "โป่งงาม",
+                        "เวียงพางคำ",
+                        "บ้านด้าย"
+                  ]
+            }
       },
       "ภาคตะวันตก": {
-        "กาญจนบุรี": {
-          "เมืองกาญจนบุรี": ["บ้านเหนือ", "บ้านใต้", "ปากแพรก", "ท่ามะขาม", "แก่งเสี้ยน", "หนองบัว", "ลาดหญ้า", "วังเย็น", "วังด้ง", "ช่องสะเดา", "หนองหญ้า", "เกาะสำโรง"],
-          "ไทรโยค": ["ลุ่มสระ", "ไทรโยค", "สิงห์", "สิงห์โต", "ท่าเสา", "วังกระแจะ", "บ้องตี้"],
-          "สังขละบุรี": ["หนองรู", "หนองลู", "ปรังเผล", "ไล่โว่"],
-          "ทองผาภูมิ": ["ท่าขนุน", "ปิล๊อก", "หินดาด", "ห้วยเขย่ง", "สหกรณ์นิคม", "ชะลอ"],
-          "ท่ามวย": ["ท่ามวย", "หนองขาว", "ทุ่งทอง", "เขาน้อย"],
-          "ท่ามะกา": ["ท่ามะกา", "พงตึก", "ยางสูง", "พระแท่น", "ท่าไม้", "ตะคร้ำเอน"],
-          "ด่านมะขามเตี้ย": ["ด่านมะขามเตี้ย", "กลอนโด", "จรเข้เผือก", "หนองหญ้า"]
-        }
+            "กาญจนบุรี": {
+                  "เมืองกาญจนบุรี": [
+                        "บ้านเหนือ",
+                        "บ้านใต้",
+                        "ปากแพรก",
+                        "ท่ามะขาม",
+                        "แก่งเสี้ยน",
+                        "หนองบัว",
+                        "ลาดหญ้า",
+                        "วังเย็น",
+                        "วังด้ง",
+                        "ช่องสะเดา",
+                        "หนองหญ้า",
+                        "เกาะสำโรง"
+                  ],
+                  "ไทรโยค": [
+                        "ลุ่มสระ",
+                        "ไทรโยค",
+                        "สิงห์",
+                        "สิงห์โต",
+                        "ท่าเสา",
+                        "วังกระแจะ",
+                        "บ้องตี้"
+                  ],
+                  "สังขละบุรี": [
+                        "หนองรู",
+                        "หนองลู",
+                        "ปรังเผล",
+                        "ไล่โว่"
+                  ],
+                  "ทองผาภูมิ": [
+                        "ท่าขนุน",
+                        "ปิล๊อก",
+                        "หินดาด",
+                        "ห้วยเขย่ง",
+                        "สหกรณ์นิคม",
+                        "ชะลอ"
+                  ],
+                  "ท่ามวย": [
+                        "ท่ามวย",
+                        "หนองขาว",
+                        "ทุ่งทอง",
+                        "เขาน้อย"
+                  ],
+                  "ท่ามะกา": [
+                        "ท่ามะกา",
+                        "พงตึก",
+                        "ยางสูง",
+                        "พระแท่น",
+                        "ท่าไม้",
+                        "ตะคร้ำเอน"
+                  ],
+                  "ด่านมะขามเตี้ย": [
+                        "ด่านมะขามเตี้ย",
+                        "กลอนโด",
+                        "จรเข้เผือก",
+                        "หนองหญ้า"
+                  ]
+            }
       },
       "ภาคกลาง": {
-        "กรุงเทพมหานคร": {
-          "พระนคร": ["พระบรมมหาราชวัง", "วังบูรพาภิรมย์", "วัดราชบพิธ", "สำราญราษฎร์", "ศาลเจ้าพ่อหลักเมือง", "เสาชิงช้า", "บวรนิเวศ", "ตลาดยอด", "ชนะสงคราม", "บ้านพานถม", "บางขุนพรหม", "วัดสามพระยา"],
-          "บางรัก": ["สีลม", "สุริยวงศ์", "บางรัก", "สี่พระยา", "มหาพฤฒาราม"],
-          "บางซื่อ": ["บางซื่อ", "วงศ์สว่าง"],
-          "ห้วยขวาง": ["ห้วยขวาง", "สามเสนนอก", "บางกะปิ"],
-          "ปทุมวัน": ["ปทุมวัน", "รองเมือง", "วังใหม่", "ลุมพินี"]
-        },
-        "นนทบุรี": {
-          "ปากเกร็ด": ["ปากเกร็ด", "บางตลาด", "คลองเกลือ", "บ้านใหม่", "อ้อมเกร็ด", "คลองพระอุดม", "ท่าอิฐ", "เกาะเกร็ด"],
-          "เมืองนนทบุรี": ["สวนใหญ่", "ตลาดขวัญ", "บางเขน", "บางกระสอ", "ท่าทราย", "บางไผ่", "บางศรีเมือง", "บางกร่าง", "ไทรม้า"]
-        }
+            "กรุงเทพมหานคร": {
+                  "พระนคร": [
+                        "พระบรมมหาราชวัง",
+                        "วังบูรพาภิรมย์",
+                        "วัดราชบพิธ",
+                        "สำราญราษฎร์",
+                        "ศาลเจ้าพ่อหลักเมือง",
+                        "เสาชิงช้า",
+                        "บวรนิเวศ",
+                        "ตลาดยอด",
+                        "ชนะสงคราม",
+                        "บ้านพานถม",
+                        "บางขุนพรหม",
+                        "วัดสามพระยา"
+                  ],
+                  "บางรัก": [
+                        "สีลม",
+                        "สุริยวงศ์",
+                        "บางรัก",
+                        "สี่พระยา",
+                        "มหาพฤฒาราม"
+                  ],
+                  "บางซื่อ": [
+                        "บางซื่อ",
+                        "วงศ์สว่าง"
+                  ],
+                  "ห้วยขวาง": [
+                        "ห้วยขวาง",
+                        "สามเสนนอก",
+                        "บางกะปิ"
+                  ],
+                  "ปทุมวัน": [
+                        "ปทุมวัน",
+                        "รองเมือง",
+                        "วังใหม่",
+                        "ลุมพินี"
+                  ]
+            },
+            "นนทบุรี": {
+                  "ปากเกร็ด": [
+                        "ปากเกร็ด",
+                        "บางตลาด",
+                        "คลองเกลือ",
+                        "บ้านใหม่",
+                        "อ้อมเกร็ด",
+                        "คลองพระอุดม",
+                        "ท่าอิฐ",
+                        "เกาะเกร็ด"
+                  ],
+                  "เมืองนนทบุรี": [
+                        "สวนใหญ่",
+                        "ตลาดขวัญ",
+                        "บางเขน",
+                        "บางกระสอ",
+                        "ท่าทราย",
+                        "บางไผ่",
+                        "บางศรีเมือง",
+                        "บางกร่าง",
+                        "ไทรม้า"
+                  ]
+            }
       },
       "ภาคใต้": {
-        "สงขลา": {
-          "หาดใหญ่": ["หาดใหญ่", "คอหงส์", "คลองแห", "บ้านพรุ", "ทุ่งใหญ่", "ควนลัง", "คูเต่า"]
-        },
-        "นราธิวาส": {
-          "สุไหงโกลก": ["สุไหงโกลก", "ปูโละปูโย", "มูโนะ", "สุวารี"]
-        },
-        "ยะลา": {
-          "เบตง": ["เบตง", "ยะรม", "ตาเนาะแมเราะ", "อัยเยอร์เวง"]
-        }
+            "สงขลา": {
+                  "หาดใหญ่": [
+                        "หาดใหญ่",
+                        "คอหงส์",
+                        "คลองแห",
+                        "บ้านพรุ",
+                        "ทุ่งใหญ่",
+                        "ควนลัง",
+                        "คูเต่า",
+                        "ควนลัง"
+                  ]
+            },
+            "นราธิวาส": {
+                  "สุไหงโกลก": [
+                        "สุไหงโกลก",
+                        "ปูโละปูโย",
+                        "มูโนะ",
+                        "สุวารี"
+                  ]
+            },
+            "ยะลา": {
+                  "เบตง": [
+                        "เบตง",
+                        "ยะรม",
+                        "ตาเนาะแมเราะ",
+                        "อัยเยอร์เวง"
+                  ]
+            }
       },
       "ภาคตะวันออก": {
-        "ชลบุรี": {
-          "เมืองชลบุรี": ["บางปลาสร้อย", "บ้านสวน", "หนองไม้แดง", "เสม็ด"],
-          "บางละมุง": ["เมืองพัทยา", "นาเกลือ", "หนองปรือ", "ห้วยใหญ่"]
-        },
-        "ตราด": {
-          "คลองใหญ่": ["คลองใหญ่", "ไม้รูด", "หาดเล็ก", "ชำราก"]
-        }
+            "ชลบุรี": {
+                  "เมืองชลบุรี": [
+                        "บางปลาสร้อย",
+                        "บ้านสวน",
+                        "หนองไม้แดง",
+                        "เสม็ด"
+                  ],
+                  "บางละมุง": [
+                        "เมืองพัทยา",
+                        "นาเกลือ",
+                        "หนองปรือ",
+                        "ห้วยใหญ่"
+                  ]
+            },
+            "ตราด": {
+                  "คลองใหญ่": [
+                        "คลองใหญ่",
+                        "ไม้รูด",
+                        "หาดเล็ก",
+                        "ชำราก"
+                  ]
+            }
       },
       "ภาคตะวันออกเฉียงเหนือ": {
-        "อุบลราชธานี": {
-          "เมืองอุบลราชธานี": ["ในเมือง", "แจระแม", "ขามใหญ่", "ปะอาว"]
-        },
-        "ขอนแก่น": {
-          "เมืองขอนแก่น": ["ในเมือง", "ศิลา", "บ้านเป็ด", "พระลับ"]
-        }
+            "อุบลราชธานี": {
+                  "เมืองอุบลราชธานี": [
+                        "ในเมือง",
+                        "แจระแม",
+                        "ขามใหญ่",
+                        "ปะอาว"
+                  ]
+            },
+            "ขอนแก่น": {
+                  "เมืองขอนแก่น": [
+                        "ในเมือง",
+                        "ศิลา",
+                        "บ้านเป็ด",
+                        "พระลับ"
+                  ]
+            }
       }
-    };
+};
 
     function onRegionChange() {
       const reg = document.getElementById('selectRegion').value;
@@ -774,8 +1030,8 @@
 
       const headers = {
         'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)',
-        'BBIM': 'สนับสนุน (BBIM) - ตรวจสอบและให้ความเห็น',
-        'ALL': 'Master View - ภาพรวมระบบและการล็อกสถานะ'
+        'BBIM': '<i class="fa-solid fa-headset"></i> สนับสนุน (BBIM) - ตรวจสอบและให้ความเห็น',
+        'ALL': '<i class="fa-solid fa-layer-group"></i> Master View - ภาพรวมระบบและการล็อกสถานะ'
       };
       document.getElementById('panel-role-header').innerHTML = headers[role];
 
@@ -911,7 +1167,17 @@
         tr.innerHTML = `
           <td><strong>${order.id}</strong> ${lockBadge}</td>
           <td>${order.customer}<br><small style="color:var(--primary-color);">${order.internetNo || '-'}</small></td>
-          <td>${order.region} > ${order.province} > ${order.district} > ${order.subdistrict}</td>
+          <td>
+            <div>${order.region} &gt; ${order.province} &gt; ${order.district} &gt; ${order.subdistrict}</div>
+            ${(order.lat && order.lat !== '-' && order.lng && order.lng !== '-') 
+              ? `<small style="color: #0d9488; font-weight: 500; display: inline-block; margin-top: 2px;">
+                   <i class="fa-solid fa-location-dot"></i> GPS: ${order.lat}, ${order.lng}
+                   <a href="https://www.google.com/maps?q=${order.lat},${order.lng}" target="_blank" style="color: #0284c7; margin-left: 4px; text-decoration: underline;" onclick="event.stopPropagation();">
+                     <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> แผนที่
+                   </a>
+                 </small>`
+              : `<small style="color: #94a3b8; display: inline-block; margin-top: 2px;"><i class="fa-solid fa-location-dot"></i> GPS: ไม่ระบุ</small>`}
+          </td>
           <td>${imgTag}</td>
           <td><span class="badge ${statusInfo.class}">${statusInfo.text}</span></td>
           <td><button class="btn btn-sm btn-secondary" onclick="selectOrder('${order.id}')">ดูข้อมูล</button></td>
@@ -934,14 +1200,15 @@
       const bbimContainer = document.getElementById('bbim-action-container');
       if (selectedOrder) {
         const isLocked = selectedOrder.isLocked;
-        const isProcessed = selectedOrder.status !== 'PENDING_BBIM';
+        const isProcessed = selectedOrder.status !== 'PENDING_BBIM'; // สถานะถูกอนุมัติหรือไม่อนุมัติไปแล้ว
         const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
         const currentUid = currentUser ? currentUser.uid : '';
         const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
         const isAdmin = userProfile.role === 'ADMIN';
         const isBBIM = userProfile.role === 'BBIM';
 
-        const isActionDisabled = isProcessed || !isLocked;
+        const isTheLocker = isAdmin || !selectedOrder.lockedBy || selectedOrder.lockedBy === currentUid;
+        const isActionDisabled = isProcessed || !isLocked || !isTheLocker;
         
         let canLock = (isAdmin || isBBIM) && !isProcessed;
         let canUnlock = isAdmin || isBBIM || isLocked;
@@ -975,6 +1242,7 @@
               <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำแนะนำ:</strong> กรุณากดปุ่ม <strong>"ล็อกสถานะงานเพื่อเริ่มตรวจ"</strong> ระบบจะเริ่มจับเวลาและเปิดให้กดอนุมัติ/ไม่อนุมัติ
             </div>`;
         } else {
+          // Live timer calculation
           let initialSec = 0;
           if (selectedOrder.lockedAtTimestamp) {
             initialSec = Math.max(0, Math.floor((Date.now() - selectedOrder.lockedAtTimestamp) / 1000));
@@ -1081,9 +1349,11 @@
       try {
         const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
         const timeNow = getBangkokTimeString();
-        const userProfile = window.currentUserProfile || { name: 'Technician' };
+        const userProfile = window.currentUserProfile || { name: 'Technician', phone: '-' };
 
         const newOrder = {
+          techName: userProfile.name || "-",
+          techPhone: userProfile.phone || "-",
           id: newId,
           ...pendingOrderData,
           status: "PENDING_BBIM",
@@ -1104,7 +1374,7 @@
         currentBase64Images = [];
         document.getElementById('imagePreviewContainer').style.display = 'none';
         pendingOrderData = null;
-        alert("ส่งข้อมูลให้ BBIM ตรวจสอบเรียบร้อยแล้ว");
+        alert("ส่งข้อมูลให้ BBIM ตรวจสอบ");
         window.renderApp();
       } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
     }
@@ -1135,6 +1405,11 @@
       }
       if (!order.isLocked) {
         alert("❌ กรุณากด 'ล็อกสถานะงาน' ก่อนทำรายการอนุมัติหรือปฏิเสธทุกครั้ง");
+        return;
+      }
+
+      if (!isAdmin && order.lockedBy && order.lockedBy !== currentUid) {
+        alert("❌ รายการนี้ถูกล็อกโดยผู้ใช้อื่น คุณไม่สามารถทำรายการอนุมัติหรือไม่อนุมัติได้");
         return;
       }
 
@@ -1214,11 +1489,11 @@
           logs: newLogs
         };
         await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
-        alert(lockState ? `ล็อกสถานะงาน (เวลา ${timeNow})` : "ปลดล็อกสถานะงาน");
+        alert(lockState ? `ล็อกสถานะงาน (เวลา ${timeNow}) ` : "ปลดล็อกสถานะงาน");
       }
     }
 
-    // EXPORT EXCEL (จัดเรียงคอลัมน์ตามรูปภาพของคุณ)
+    // EXPORT EXCEL (ปรับลำดับ Column ตามที่คุณต้องการ)
     function exportToExcel() {
       if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
         alert("สิทธิ์ช่าง (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
@@ -1240,25 +1515,44 @@
         return;
       }
 
-      const excelData = list.map(o => ({
-        "Job ID": o.id || "",
-        "Internet no.": o.internetNo || "",
-        "Symptom": o.symptom || "",
-        "ชื่อช่าง": o.techName || "",
-        "เบอร์ติดต่อช่าง": o.techPhone || "",
-        "ตำบล": o.subdistrict || "",
-        "อำเภอ": o.district || "",
-        "จังหวัด": o.province || "",
-        "Region": o.region || "",
-        "Latitude": o.lat || "",
-        "Longitude": o.lng || "",
-        "Request Date Time": o.createdAt || "",
-        "Accept job Date Time": o.lockedAt || "",
-        "Close job Date Time": o.processedAt || "",
-        "ผลการตรวจสอบ": o.status === 'BBIM_APPROVED' ? 'สามารถติดตั้งได้' : (o.status === 'BBIM_REJECTED' ? 'ไม่อนุมัติ' : o.status || ""),
-        "หมายเหตุ (จากBBIM)": o.bbimNote || "",
-        "Owner Accept": o.ownerAccept || ""
-      }));
+      const regionMap = {
+        'ภาคกลาง': 'ROC',
+        'กรุงเทพมหานคร': 'BKK',
+        'ภาคตะวันออก': 'ROE',
+        'ภาคเหนือ': 'RONE',
+        'ภาคใต้': 'ROS',
+        'ภาคตะวันออกเฉียงเหนือ': 'NE',
+        'ภาคตะวันตก': 'ROC'
+      };
+
+      const excelData = list.map(o => {
+        let mappedRegion = o.region || "";
+        if (o.province === "กรุงเทพมหานคร") {
+          mappedRegion = "BKK";
+        } else if (regionMap[o.region]) {
+          mappedRegion = regionMap[o.region];
+        }
+
+        return {
+          "Job ID": o.id || "",
+          "Internet no.": o.internetNo || "",
+          "Symptom": o.symptom || "",
+          "ชื่อช่าง": o.techName || "",
+          "เบอร์ติดต่อช่าง": o.techPhone || "",
+          "ตำบล": o.subdistrict || "",
+          "อำเภอ": o.district || "",
+          "จังหวัด": o.province || "",
+          "Region": mappedRegion,
+          "Latitude": o.lat || "",
+          "Longitude": o.lng || "",
+          "Request Date Time": o.createdAt || "",
+          "Accept job Date Time": o.lockedAt || "",
+          "Close job Date Time": o.processedAt || "",
+          "ผลการตรวจสอบ": o.status === 'BBIM_APPROVED' ? 'สามารถติดตั้งได้' : (o.status === 'BBIM_REJECTED' ? 'ไม่อนุมัติ' : o.status || ""),
+          "หมายเหตุ (จากBBIM)": o.bbimNote || "",
+          "Owner Accept": o.ownerAccept || ""
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
