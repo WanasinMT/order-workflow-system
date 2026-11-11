@@ -872,6 +872,15 @@
       }
     }
 
+        function getCurrentUserIdentifier() {
+      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
+      if (currentUser && currentUser.uid) return currentUser.uid;
+      if (window.currentUserProfile && (window.currentUserProfile.name || window.currentUserProfile.email)) {
+        return window.currentUserProfile.name || window.currentUserProfile.email;
+      }
+      return 'GUEST_USER';
+    }
+
     function getBangkokTimeString() {
       const now = new Date();
       const options = { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
@@ -1201,18 +1210,16 @@
       if (selectedOrder) {
         const isLocked = selectedOrder.isLocked;
         const isProcessed = selectedOrder.status !== 'PENDING_BBIM'; // สถานะถูกอนุมัติหรือไม่อนุมัติไปแล้ว
-        const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
-        const currentUid = currentUser ? currentUser.uid : '';
+        const currentId = getCurrentUserIdentifier();
         const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
         const isAdmin = userProfile.role === 'ADMIN';
         const isBBIM = userProfile.role === 'BBIM';
 
-        const hasValidUser = currentUid !== '';
-        const isTheLocker = isAdmin || (hasValidUser && selectedOrder.lockedBy === currentUid);
+        const isTheLocker = isAdmin || (selectedOrder.lockedBy && selectedOrder.lockedBy === currentId);
         const isActionDisabled = isProcessed || !isLocked || !isTheLocker;
         
         let canLock = (isAdmin || isBBIM) && !isProcessed && !isLocked;
-        let canUnlock = isAdmin || (hasValidUser && selectedOrder.lockedBy === currentUid);
+        let canUnlock = isAdmin || (selectedOrder.lockedBy && selectedOrder.lockedBy === currentId);
         
         let lockButtonHtml = '';
         if (!isProcessed) {
@@ -1398,7 +1405,7 @@
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    async function handleBBIMAction(orderId, action) {
+        async function handleBBIMAction(orderId, action) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
       if (order.status !== 'PENDING_BBIM') {
@@ -1410,7 +1417,10 @@
         return;
       }
 
-      if (!isAdmin && order.lockedBy && (order.lockedBy !== currentUid || !currentUid)) {
+      const userProfile = window.currentUserProfile || { role: 'BBIM', name: 'BBIM User' };
+      const isAdmin = userProfile.role === 'ADMIN';
+      const currentId = getCurrentUserIdentifier();
+      if (!isAdmin && order.lockedBy && order.lockedBy !== currentId) {
         alert("❌ รายการนี้ถูกล็อกโดยผู้ใช้อื่น คุณไม่สามารถทำรายการอนุมัติหรือไม่อนุมัติได้");
         return;
       }
@@ -1422,8 +1432,7 @@
 
       const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
       const currentUid = currentUser ? currentUser.uid : '';
-      const userProfile = window.currentUserProfile || { role: 'BBIM', name: 'BBIM User' };
-      const processorName = userProfile.name || currentUser.email || 'BBIM';
+      const processorName = userProfile.name || (currentUser ? currentUser.email : 'BBIM');
 
       const newStatus = action === 'APPROVE' ? 'BBIM_APPROVED' : 'BBIM_REJECTED';
       const actionText = action === 'APPROVE' ? 'BBIM อนุมัติงานสำเร็จ' : 'BBIM ไม่อนุมัติงาน';
@@ -1451,19 +1460,18 @@
     async function toggleLockOrder(orderId, lockState) {
       const order = (window.orders || []).find(o => o.id === orderId);
       if (!order) return;
-      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
-      const currentUid = currentUser ? currentUser.uid : '';
+      const currentId = getCurrentUserIdentifier();
       const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
       const isAdmin = userProfile.role === 'ADMIN';
       const isBBIM = userProfile.role === 'BBIM';
-      const userName = userProfile.name || (currentUser ? currentUser.email : 'User');
+      const userName = userProfile.name || (window.auth && window.auth.currentUser ? window.auth.currentUser.email : 'User');
 
       if (!isAdmin && !isBBIM) {
         alert("คุณไม่มีสิทธิ์ในการล็อกหรือปลดล็อกสถานะ");
         return;
       }
 
-      if (!lockState && !isAdmin && order.lockedBy && order.lockedBy !== currentUid) {
+      if (!lockState && !isAdmin && order.lockedBy && order.lockedBy !== currentId) {
         alert("❌ คุณไม่สามารถปลดล็อกได้ เนื่องจากสถานะถูกล็อกโดย User ท่านอื่น (เฉพาะ Admin หรือ User ผู้ล็อกเดิมเท่านั้นที่ปลดได้)");
         return;
       }
@@ -1484,7 +1492,7 @@
 
         const updatePayload = {
           isLocked: lockState,
-          lockedBy: lockState ? currentUid : "",
+          lockedBy: lockState ? currentId : "",
           lockedByName: lockState ? userName : "",
           lockedAt: lockState ? timeNow : "",
           lockedAtTimestamp: lockState ? nowMs : null,
