@@ -1,1584 +1,1303 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" class="h-full bg-slate-50">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ระบบจัดการกระบวนการคำสั่งซื้อ (Order Workflow Management System)</title>
-  <link rel="stylesheet" href="styles.css" />
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <!-- Google Fonts Prompt -->
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  
-  <!-- SheetJS (xlsx) สำหรับ Export Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Dispatch & SOA Late Log Portal (Firebase Connected)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx) for Excel parsing and export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDKs (v10 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-  <!-- Firebase SDK Modules -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
-    import { 
-      getAuth, 
-      signInWithEmailAndPassword, 
-      createUserWithEmailAndPassword, 
-      signOut, 
-      onAuthStateChanged 
-    } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-    import { 
-      getFirestore, 
-      collection, 
-      doc, 
-      setDoc, 
-      getDoc, 
-      updateDoc, 
-      deleteDoc, 
-      onSnapshot, 
-      query, 
-      orderBy, 
-      serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBqKheheNFQsHCJRkfoBQ_aR7BfHXgLGpY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "order-workflow-system",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "643889440663",
-      appId: "1:643889440663:web:4b1c96081b1b83d2de06d2"
-    };
-
-    let app, auth, db;
-    try {
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-
-      window.auth = auth;
-      window.db = db;
-      window.fbAuth = { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut };
-      window.fs = { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp };
-      
-      console.log("⚡ Firebase Auth & Firestore Connected!");
-
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          try {
-            const userDocRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userDocRef);
-            if (userSnap.exists()) {
-              window.currentUserProfile = userSnap.data();
-              
-              if (window.currentUserProfile.status === 'PENDING') {
-                alert("🔒 บัญชีของคุณอยู่ระหว่างรอการอนุมัติสิทธิ์จาก Admin ปัจจุบัน กรุณารอการอนุมัติ");
-                await signOut(auth);
-                return;
-              } else if (window.currentUserProfile.status === 'REJECTED') {
-                alert("❌ บัญชีของคุณถูกปฏิเสธสิทธิ์การใช้งานจาก Admin");
-                await signOut(auth);
-                return;
-              }
-            } else {
-              alert("❌ บัญชีของคุณไม่พบข้อมูลในระบบ");
-              await signOut(auth);
-              return;
-            }
-          } catch (e) {
-            console.error("Error fetching user profile:", e);
-            window.currentUserProfile = { name: user.email, role: 'TECHNICIAN' };
-          }
-          document.getElementById('login-modal').style.display = 'none';
-          document.getElementById('currentUserName').innerText = window.currentUserProfile.name || user.email;
-          document.getElementById('currentUserRoleTag').innerText = window.currentUserProfile.role;
-          applyRBACPermissions(window.currentUserProfile.role);
-          initRealtimeListener();
-          initPendingUsersListener();
-        } else {
-          window.currentUserProfile = null;
-          document.getElementById('login-modal').style.display = 'flex';
-        }
-      });
-    } catch (e) {
-      console.warn("⚠️ Firebase Config ยังไม่ถูกตั้งค่าจริง");
-    }
-
-    function initRealtimeListener() {
-      if (!window.db) return;
-      const q = window.fs.query(window.fs.collection(window.db, "orders"), window.fs.orderBy("createdAt", "desc"));
-      window.fs.onSnapshot(q, (snapshot) => {
-        window.orders = [];
-        snapshot.forEach((docSnap) => {
-          window.orders.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        if (window.renderApp) window.renderApp();
-      }, (error) => {
-        console.error("Firestore Listen Error:", error);
-      });
-    }
-  </script>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        #auth-modal > div, #image-modal > div { animation: fadeIn 0.2s ease-out forwards; }
+    </style>
 </head>
-<body>
+<body class="h-full flex flex-col font-sans text-slate-800 bg-slate-100">
 
-  <!-- AUTHENTICATION MODAL -->
-  <div id="login-modal" class="login-modal">
-    <div class="login-box">
-      <div class="login-header">
-        <i class="fa-solid fa-shield-halved login-logo"></i>
-        <h2>เข้าสู่ระบบ Order Workflow</h2>
-        <p>ยืนยันตัวตนด้วย Firebase Auth & Roles System</p>
-      </div>
-
-      <div class="auth-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <button type="button" class="btn btn-secondary active" id="tab-login" onclick="toggleAuthMode('login')" style="flex: 1;">เข้าสู่ระบบ</button>
-        <button type="button" class="btn btn-secondary" id="tab-register" onclick="toggleAuthMode('register')" style="flex: 1;">ลงทะเบียนผู้ใช้ใหม่</button>
-      </div>
-
-      <form id="loginForm" onsubmit="handleAuthSubmit(event)">
-        <div class="form-group">
-          <label><i class="fa-solid fa-envelope"></i> อีเมล (Email)</label>
-          <input type="email" id="authEmail" class="form-control" placeholder="user@example.com" required />
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-lock"></i> รหัสผ่าน (Password)</label>
-          <input type="password" id="authPassword" class="form-control" placeholder="อย่างน้อย 6 ตัวอักษร" required />
-        </div>
-
-        <div id="register-fields" class="hidden">
-          <div class="form-group">
-            <label><i class="fa-solid fa-lock"></i> ยืนยันรหัสผ่านอีกรอบ</label>
-            <input type="password" id="authConfirmPassword" class="form-control" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-id-card"></i> ชื่อ-นามสกุล</label>
-            <input type="text" id="authName" class="form-control" placeholder="เช่น นายช่าง สมชาย" />
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-phone"></i> เบอร์ติดต่อช่าง / ผู้ใช้งาน</label>
-            <input type="tel" id="authPhone" class="form-control" placeholder="เช่น 0812345678" />
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-user-gear"></i> กำหนดบทบาท (Role)</label>
-            <select id="authRole" class="form-control">
-              <option value="TECHNICIAN">ช่างสนาม (Technician - คีย์ข้อมูล 100%)</option>
-              <option value="BBIM">ทีมสนับสนุน (BBIM)</option>
-              <option value="ADMIN">ผู้ดูแลระบบ (Admin - ปลดล็อกสถานะ)</option>
-            </select>
-          </div>
-        </div>
-
-        <button type="submit" id="authSubmitBtn" class="btn btn-primary style-login-btn">
-          <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ (Login)
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <!-- LOGOUT MODAL -->
-  <div id="logoutModal" class="image-modal hidden" style="background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
-    <div class="login-box" style="background: #fff; padding: 25px; border-radius: 12px; width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-      <div style="font-size: 40px; color: #f59e0b; margin-bottom: 12px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <h3 style="margin-bottom: 8px; font-size: 18px; color: #1e293b;">ยืนยันการออกจากระบบ</h3>
-      <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีนี้?</p>
-      <div style="display: flex; gap: 10px;">
-        <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()" style="flex: 1;">ยกเลิก</button>
-        <button type="button" class="btn btn-danger" onclick="confirmLogout()" style="flex: 1; background: #ef4444; color: #fff; border: none; border-radius: 6px; padding: 10px; cursor: pointer;">ออกจากระบบ</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- REVIEW ORDER MODAL -->
-  <div id="reviewOrderModal" class="image-modal hidden" style="background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
-    <div style="background: #fff; padding: 25px; border-radius: 12px; width: 480px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: left;">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 15px;">
-        <h3 style="font-size: 18px; color: #1e293b; margin: 0;"><i class="fa-solid fa-clipboard-check" style="color: var(--primary-color);"></i> ตรวจสอบข้อมูลก่อนบันทึก</h3>
-        <span onclick="closeReviewModal()" style="font-size: 22px; cursor: pointer; color: #64748b;">&times;</span>
-      </div>
-      <div id="reviewOrderContent" style="font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
-      <div style="display: flex; gap: 10px;">
-        <button type="button" class="btn btn-secondary" onclick="closeReviewModal()" style="flex: 1;">กลับไปแก้ไข</button>
-        <button type="button" class="btn btn-primary" onclick="confirmAndSaveOrder()" style="flex: 1; background: #10b981; border: none;">ยืนยันและบันทึก</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- IMAGE LIGHTBOX -->
-  <div id="imageModal" class="image-modal hidden" onclick="closeImageModal()">
-    <div class="image-modal-content" onclick="event.stopPropagation()">
-      <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-      <img id="modalImage" src="" alt="Full Size Image" />
-      <div id="modalImageCaption" style="text-align:center; margin-top:10px; color:#fff; font-weight:500;"></div>
-    </div>
-  </div>
-
-  <!-- TOP HEADER -->
-  <header class="app-header">
-    <div class="logo-area">
-      <i class="fa-solid fa-fire logo-icon" style="color: #f59e0b;"></i>
-      <div>
-        <h1>ระบบจัดการคำสั่งซื้อ (BBIM Portal)</h1>
-        <p>Order Workflow Management System</p>
-      </div>
-    </div>
-    
-    <div class="user-profile-bar">
-      <div class="role-selector">
-        <span class="role-label"><i class="fa-solid fa-user-gear"></i> มุมมองสิทธิ์ใช้งาน:</span>
-        <div class="role-buttons">
-          <button class="role-btn role-tech-btn" id="btn-role-tech" onclick="switchRoleView('TECHNICIAN')">
-            <i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)
-          </button>
-          <button class="role-btn role-bbim-btn" id="btn-role-bbim" onclick="switchRoleView('BBIM')">
-            <i class="fa-solid fa-headset"></i> สนับสนุน (BBIM)
-          </button>
-          <button class="role-btn role-admin-btn" id="btn-role-all" onclick="switchRoleView('ALL')">
-            <i class="fa-solid fa-layer-group"></i> ดูทั้งหมด (Master View)
-          </button>
-        </div>
-      </div>
-
-      <div class="user-info-box">
-        <div class="avatar-circle" id="userAvatar"><i class="fa-solid fa-user"></i></div>
-        <div>
-          <span class="user-fullname" id="currentUserName">ผู้ใช้งาน</span>
-          <span class="user-role-badge" id="currentUserRoleTag">Role</span>
-        </div>
-        <button class="btn btn-sm btn-logout" onclick="openLogoutModal()">
-          <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <div class="main-container">
-    
-    <!-- STATS -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-title">งานทั้งหมด</span>
-          <span class="stat-value" id="stat-total">0</span>
-        </div>
-        <div class="stat-icon bg-blue"><i class="fa-solid fa-clipboard-list"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-title">รอ BBIM ตรวจสอบ</span>
-          <span class="stat-value" id="stat-pending">0</span>
-        </div>
-        <div class="stat-icon bg-yellow"><i class="fa-solid fa-clock"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-title">BBIM อนุมัติสำเร็จ</span>
-          <span class="stat-value" id="stat-success">0</span>
-        </div>
-        <div class="stat-icon bg-green"><i class="fa-solid fa-circle-check"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-title">ไม่อนุมัติ / แจ้งกลับ</span>
-          <span class="stat-value" id="stat-rejected">0</span>
-        </div>
-        <div class="stat-icon bg-red"><i class="fa-solid fa-circle-xmark"></i></div>
-      </div>
-    </div>
-
-    <!-- MAIN WORKSPACE -->
-    <div class="workspace-grid">
-      
-      <!-- LEFT PANEL: ACTION FOR TECH / BBIM / ADMIN -->
-      <div class="panel">
-        <div class="panel-header" id="panel-role-header">
-          <i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)
-        </div>
-        <div class="panel-body">
-          
-          <!-- TECHNICIAN FORM -->
-          <div id="section-technician" class="role-section">
-            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> บันทึกข้อมูลงานติดตั้ง (โดยช่าง)</h3>
-            <form id="orderForm" onsubmit="handleRegisterOrder(event)">
-              <div class="form-group">
-                <label>ชื่อ-นามสกุล ลูกค้า</label>
-                <input type="text" id="custName" class="form-control" placeholder="เช่น คุณสมชาย ใจดี" required />
-              </div>
-              
-              <div class="form-group">
-                <label><i class="fa-solid fa-network-wired"></i> หมายเลขบริการอินเทอร์เน็ต (Internet No.)</label>
-                <input type="text" id="internetNo" class="form-control" placeholder="เช่น 88XXXXXXXX" required />
-              </div>
-
-              <!-- DROPDOWN ADDRESS: Region -> Province -> District -> Subdistrict -->
-              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-globe"></i> ภาค (Region)</label>
-                  <select id="selectRegion" class="form-control" onchange="onRegionChange()" required>
-                    <option value="">-- เลือกภาค --</option>
-                    <option value="ภาคกลาง">ภาคกลาง</option>
-                    <option value="ภาคเหนือ">ภาคเหนือ</option>
-                    <option value="ภาคตะวันออกเฉียงเหนือ">ภาคตะวันออกเฉียงเหนือ</option>
-                    <option value="ภาคใต้">ภาคใต้</option>
-                    <option value="ภาคตะวันออก">ภาคตะวันออก</option>
-                    <option value="ภาคตะวันตก">ภาคตะวันตก</option>
-                  </select>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 m-4 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 mb-3 text-xl font-bold">
+                    <i class="fa-solid fa-truck-fast"></i>
                 </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-map"></i> จังหวัด (Province)</label>
-                  <select id="selectProvince" class="form-control" onchange="onProvinceChange()" required disabled>
-                    <option value="">-- เลือกจังหวัด --</option>
-                  </select>
-                </div>
-              </div>
+                <h2 class="text-2xl font-bold text-slate-900" id="auth-title">เข้าสู่ระบบ Order Portal</h2>
+                <p class="text-xs text-slate-500 mt-1" id="auth-subtitle">เชื่อมต่อ Firebase Cloud Database เรียบร้อย</p>
+            </div>
 
-              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-city"></i> อำเภอ/เขต (District)</label>
-                  <select id="selectDistrict" class="form-control" onchange="onDistrictChange()" required disabled>
-                    <option value="">-- เลือกอำเภอ --</option>
-                  </select>
+            <form id="auth-form" class="space-y-4">
+                <div id="signup-extra-fields" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">ชื่อ - นามสกุล (Full Name)</label>
+                        <input type="text" id="auth-fullname" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600" placeholder="ชื่อ นามสกุล">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">บทบาทผู้ใช้งาน (Role)</label>
+                        <select id="auth-role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-700 font-medium">
+                            <option value="user">User ทั่วไป (ทีมงาน / ช่างปฏิบัติการ)</option>
+                            <option value="admin">Admin (ผู้ดูแลระบบสูงสุด)</option>
+                        </select>
+                    </div>
+                    <div id="region-field-container">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">ภูมิภาค / โซน (Region)</label>
+                        <select id="auth-region" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-700 font-medium">
+                            <option value="">-- เลือก Region --</option>
+                            <option value="BKK">BKK (กรุงเทพฯ และปริมณฑล)</option>
+                            <option value="ROC">ROC (ภาคกลาง / ตะวันออก)</option>
+                            <option value="RON">RON (ภาคเหนือ)</option>
+                            <option value="RONE">RONE (ภาคตะวันออกเฉียงเหนือ)</option>
+                            <option value="ROS">ROS (ภาคใต้)</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label><i class="fa-solid fa-location-dot"></i> ตำบล/แขวง (Subdistrict)</label>
-                  <select id="selectSubdistrict" class="form-control" required disabled>
-                    <option value="">-- เลือกตำบล --</option>
-                  </select>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">อีเมล (Email)</label>
+                    <input type="email" id="auth-email" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600" placeholder="name@company.com">
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label>ที่อยู่ติดตั้งโดยรายละเอียด</label>
-                <textarea id="custAddress" class="form-control" rows="2" placeholder="บ้านเลขที่, ถนน, ซอย..." required></textarea>
-              </div>
-
-              <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 12px;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label>ละติจูด (Latitude)</label>
-                  <input type="text" id="custLat" class="form-control" placeholder="13.7563" />
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">รหัสผ่าน (Password)</label>
+                    <input type="password" id="auth-password" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600" placeholder="••••••••">
                 </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                  <label>ลองจิจูด (Longitude)</label>
-                  <input type="text" id="custLng" class="form-control" placeholder="100.5018" />
+
+                <div id="confirm-password-field" class="hidden">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">ยืนยันรหัสผ่าน (Confirm Password)</label>
+                    <input type="password" id="auth-confirm-password" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600" placeholder="••••••••">
                 </div>
-              </div>
-              <button type="button" class="btn btn-secondary" onclick="getGPSLocation(event)" style="width: 100%; margin-bottom: 12px; font-size: 13px;">
-                <i class="fa-solid fa-crosshairs"></i> <span class="gps-btn-text">ดึงพิกัด GPS อัตโนมัติ</span>
-              </button>
 
-              <div class="form-group">
-                <label><i class="fa-solid fa-camera"></i> ถ่ายภาพหน้างาน (สูงสุด 5 ภาพ)</label>
-                <input type="file" id="custImageFile" class="form-control" accept="image/*" multiple onchange="previewSelectedImages(event)" />
-                <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
-                  <div id="imagePreviewList" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                <div id="auth-error" class="text-red-500 text-xs hidden bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation"></i> <span id="auth-error-text">เกิดข้อผิดพลาด</span>
                 </div>
-              </div>
 
-              <!-- Note จากช่าง -->
-              <div class="form-group">
-                <label><i class="fa-solid fa-note-sticky"></i> Note เพิ่มเติมจากช่าง (ส่งให้ BBIM)</label>
-                <textarea id="techNote" class="form-control" rows="2" placeholder="ระบุรายละเอียดเพิ่มเติมเกี่ยวกับหน้างานหรืออุปกรณ์..."></textarea>
-              </div>
-
-              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: var(--primary-color);">
-                <i class="fa-solid fa-paper-plane"></i> ส่งข้อมูลให้ BBIM ตรวจสอบ
-              </button>
+                <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                    <span id="auth-submit-text">เข้าสู่ระบบ</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
             </form>
-          </div>
 
-          <!-- BBIM PANEL -->
-          <div id="section-bbim" class="role-section hidden">
-            <h3 class="section-title"><i class="fa-solid fa-headset"></i> ตรวจสอบคำขอโดย BBIM</h3>
-            <p class="text-muted">BBIM เห็นข้อมูลทั้งหมดที่ช่างกรอกเข้ามา พร้อมประเมินและใส่ Note แจ้งช่างกลับได้</p>
-            <div id="bbim-action-container"></div>
-          </div>
-
-          <!-- ALL VIEW (ADMIN / MASTER PANEL) -->
-          <div id="section-all" class="role-section hidden">
-            <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Master Command & Admin Panel</h3>
-            <p class="text-muted" style="margin-bottom: 16px;">ผู้ดูแลระบบสามารถปลดล็อกสถานะงาน และจัดการสิทธิ์ผู้ใช้งาน</p>
-            
-            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-user-clock"></i> รายการผู้ขอสิทธิ์ที่รออนุมัติ
-              </h4>
-              <div id="pendingAdminsList">
-                <p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการที่รออนุมัติ</p>
-              </div>
+            <div class="mt-6 pt-6 border-t border-slate-100 text-center">
+                <button type="button" id="toggle-auth-mode" class="text-xs text-indigo-600 hover:text-blue-800 font-medium">
+                    ยังไม่มีบัญชี? สมัครสมาชิกใหม่
+                </button>
             </div>
-
-            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
-              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">
-                <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการอนุมัติสิทธิ์ผู้ใช้งาน
-              </h4>
-              <div id="adminHistoryList" style="max-height: 200px; overflow-y: auto;">
-                <p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>
-              </div>
-            </div>
-          </div>
-
         </div>
-      </div>
-
-      <!-- RIGHT PANEL: SEARCH & ORDER TABLE & EXPORT EXCEL -->
-      <div class="panel">
-        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-          <div><i class="fa-solid fa-table-list"></i> รายการคำสั่งซื้อและประวัติงานในระบบ</div>
-          
-          <!-- EXPORT EXCEL & SEARCH CONTROLS -->
-          <div id="exportControlsContainer" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <input type="date" id="filterStartDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
-            <span style="color: #fff; font-size: 12px;">ถึง</span>
-            <input type="date" id="filterEndDate" class="form-control" style="width: 130px; padding: 5px; font-size: 12px;" />
-            <button class="btn btn-sm btn-success" onclick="exportToExcel()" style="background: #10b981; border: none; color: #fff;">
-              <i class="fa-solid fa-file-excel"></i> Export Excel
-            </button>
-          </div>
-        </div>
-
-        <div class="panel-body">
-          <!-- ช่องค้นหาประวัติ -->
-          <div class="form-group" style="margin-bottom: 12px;">
-            <div style="position: relative;">
-              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 12px; color: #94a3b8;"></i>
-              <input type="text" id="searchHistoryInput" class="form-control" placeholder="ค้นหาประวัติ (ชื่อลูกค้า, เลขอินเทอร์เน็ต, ตำบล, หรือสถานะ)..." oninput="renderTable()" style="padding-left: 35px;" />
-            </div>
-          </div>
-
-          <div class="order-table-container" style="overflow-x: auto; max-height: 285px; overflow-y: auto;">
-            <table class="order-table">
-              <thead>
-                <tr>
-                  <th>เลขที่ Order</th>
-                  <th>ลูกค้า / Internet No.</th>
-                  <th>พื้นที่ (Region / Address)</th>
-                  <th>รูปภาพ</th>
-                  <th>สถานะปัจจุบัน</th>
-                  <th>การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody id="orderTableBody"></tbody>
-            </table>
-          </div>
-
-          <!-- AUDIT LOG & NOTE DETAILS -->
-          <div style="margin-top: 24px;">
-            <h4 class="section-title" style="font-size: 15px;">
-              <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการทำงานและ Note จากช่าง/BBIM: <span id="selected-order-id" style="color: var(--primary-color);">[กรุณาเลือก Order]</span>
-            </h4>
-            <div id="bbimNoteDisplayBox" style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; display: none;"></div>
-            <div class="log-box" id="auditLogContainer">
-              <div class="log-item">
-                <span class="log-time">--:--</span>
-                <span class="log-role">SYSTEM</span>
-                <span class="log-text">กรุณาเลือกรายการ Order ด้านบนเพื่อดูรายละเอียด</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
     </div>
-  </div>
 
-  <script>
-    let currentRoleView = 'TECHNICIAN';
-    let authMode = 'login';
-    let selectedOrderId = '';
-    let currentBase64Images = [];
-    let pendingOrderData = null;
-
-    // ข้อมูลโครงสร้างที่อยู่ (Region -> Province -> District -> Subdistrict)
-    const THAILAND_REGIONS_DATA = {
-      "ภาคเหนือ": {
-            "ตาก": {
-                  "เมืองตาก": [
-                        "ระแหง",
-                        "หนองหลวง",
-                        "เชียงเงิน",
-                        "หัวเดียด",
-                        "หนองบัวเหนือ",
-                        "หนองบัวใต้",
-                        "วังประจบ",
-                        "ตากออก",
-                        "น้ำรึม",
-                        "วังหิน",
-                        "แม่ท้อ",
-                        "ป่ามะม่วง",
-                        "โป่งแดง",
-                        "ไม้งาม"
-                  ],
-                  "แม่สอด": [
-                        "แม่สอด",
-                        "แม่กุ",
-                        "แม่ปะ",
-                        "มหาวัน",
-                        "แม่ตาว",
-                        "ท่าสายลวด",
-                        "พระธาตุผาแดง",
-                        "พะวอ",
-                        "ด่านแม่แฉลบ",
-                        "ช่องแคบ"
-                  ],
-                  "แม่ระมาด": [
-                        "แม่ระมาด",
-                        "ขะเนจื้อ",
-                        "แม่ชะแว",
-                        "พระธาตุ",
-                        "สามหมื่น"
-                  ],
-                  "ท่าสองยาง": [
-                        "ท่าสองยาง",
-                        "แม่ต้าน",
-                        "แม่สอง",
-                        "แม่หละ",
-                        "แม่อุสุ"
-                  ],
-                  "บ้านตาก": [
-                        "ตากตก",
-                        "ตากออก",
-                        "สมอโคน",
-                        "โป่งแดง",
-                        "เกาะตะเภา"
-                  ],
-                  "สามเงา": [
-                        "สามเงา",
-                        "ย่านยาว",
-                        "บ้านเงา",
-                        "วังจันทร์",
-                        "วังหมัน"
-                  ],
-                  "อุ้มผาง": [
-                        "อุ้มผาง",
-                        "หนองหลวง",
-                        "โมโกร",
-                        "แม่กลอง",
-                        "แม่จัน"
-                  ],
-                  "พบพระ": [
-                        "พบพระ",
-                        "วาเล่ย์",
-                        "ช่องแคบ",
-                        "รวมไทยพัฒนา",
-                        "คีรีราษฎร์"
-                  ],
-                  "วังเจ้า": [
-                        "เชียงทอง",
-                        "วังหิน",
-                        "นาโบสถ์",
-                        "ประดาง"
-                  ]
-            },
-            "เชียงใหม่": {
-                  "เมืองเชียงใหม่": [
-                        "ศรีภูมิ",
-                        "พระสิงห์",
-                        "หายยา",
-                        "ช้างม่อย",
-                        "ช้างคลาน",
-                        "วัดเกต",
-                        "ช้างเผือก",
-                        "สุเทพ",
-                        "แม่เหียะ",
-                        "ป่าแดด",
-                        "หนองหอย",
-                        "ท่าศาลา",
-                        "หนองป่าครั่ง",
-                        "ฟ้าฮ่าม",
-                        "ป่าตัน",
-                        "สันผีเสื้อ"
-                  ]
-            },
-            "เชียงราย": {
-                  "เมืองเชียงราย": [
-                        "เวียง",
-                        "รอบเวียง",
-                        "บ้านดู่",
-                        "นางแล",
-                        "แม่ข้าวต้ม",
-                        "แม่ยาว",
-                        "ห้วยชมภู",
-                        "ห้วยสัก",
-                        "แม่กรณ์",
-                        "ดอยฮาง",
-                        "ท่าสาย",
-                        "ป่าอ้อดอนชัย",
-                        "ทุ่งต้อม",
-                        "สันทราย",
-                        "ริมกก"
-                  ],
-                  "แม่สาย": [
-                        "แม่สาย",
-                        "ห้วยไคล้",
-                        "เกาะช้าง",
-                        "โป่งผา",
-                        "โป่งงาม",
-                        "เวียงพางคำ",
-                        "บ้านด้าย"
-                  ]
-            }
-      },
-      "ภาคตะวันตก": {
-            "กาญจนบุรี": {
-                  "เมืองกาญจนบุรี": [
-                        "บ้านเหนือ",
-                        "บ้านใต้",
-                        "ปากแพรก",
-                        "ท่ามะขาม",
-                        "แก่งเสี้ยน",
-                        "หนองบัว",
-                        "ลาดหญ้า",
-                        "วังเย็น",
-                        "วังด้ง",
-                        "ช่องสะเดา",
-                        "หนองหญ้า",
-                        "เกาะสำโรง"
-                  ],
-                  "ไทรโยค": [
-                        "ลุ่มสระ",
-                        "ไทรโยค",
-                        "สิงห์",
-                        "สิงห์โต",
-                        "ท่าเสา",
-                        "วังกระแจะ",
-                        "บ้องตี้"
-                  ],
-                  "สังขละบุรี": [
-                        "หนองรู",
-                        "หนองลู",
-                        "ปรังเผล",
-                        "ไล่โว่"
-                  ],
-                  "ทองผาภูมิ": [
-                        "ท่าขนุน",
-                        "ปิล๊อก",
-                        "หินดาด",
-                        "ห้วยเขย่ง",
-                        "สหกรณ์นิคม",
-                        "ชะลอ"
-                  ],
-                  "ท่ามวย": [
-                        "ท่ามวย",
-                        "หนองขาว",
-                        "ทุ่งทอง",
-                        "เขาน้อย"
-                  ],
-                  "ท่ามะกา": [
-                        "ท่ามะกา",
-                        "พงตึก",
-                        "ยางสูง",
-                        "พระแท่น",
-                        "ท่าไม้",
-                        "ตะคร้ำเอน"
-                  ],
-                  "ด่านมะขามเตี้ย": [
-                        "ด่านมะขามเตี้ย",
-                        "กลอนโด",
-                        "จรเข้เผือก",
-                        "หนองหญ้า"
-                  ]
-            }
-      },
-      "ภาคกลาง": {
-            "กรุงเทพมหานคร": {
-                  "พระนคร": [
-                        "พระบรมมหาราชวัง",
-                        "วังบูรพาภิรมย์",
-                        "วัดราชบพิธ",
-                        "สำราญราษฎร์",
-                        "ศาลเจ้าพ่อหลักเมือง",
-                        "เสาชิงช้า",
-                        "บวรนิเวศ",
-                        "ตลาดยอด",
-                        "ชนะสงคราม",
-                        "บ้านพานถม",
-                        "บางขุนพรหม",
-                        "วัดสามพระยา"
-                  ],
-                  "บางรัก": [
-                        "สีลม",
-                        "สุริยวงศ์",
-                        "บางรัก",
-                        "สี่พระยา",
-                        "มหาพฤฒาราม"
-                  ],
-                  "บางซื่อ": [
-                        "บางซื่อ",
-                        "วงศ์สว่าง"
-                  ],
-                  "ห้วยขวาง": [
-                        "ห้วยขวาง",
-                        "สามเสนนอก",
-                        "บางกะปิ"
-                  ],
-                  "ปทุมวัน": [
-                        "ปทุมวัน",
-                        "รองเมือง",
-                        "วังใหม่",
-                        "ลุมพินี"
-                  ]
-            },
-            "นนทบุรี": {
-                  "ปากเกร็ด": [
-                        "ปากเกร็ด",
-                        "บางตลาด",
-                        "คลองเกลือ",
-                        "บ้านใหม่",
-                        "อ้อมเกร็ด",
-                        "คลองพระอุดม",
-                        "ท่าอิฐ",
-                        "เกาะเกร็ด"
-                  ],
-                  "เมืองนนทบุรี": [
-                        "สวนใหญ่",
-                        "ตลาดขวัญ",
-                        "บางเขน",
-                        "บางกระสอ",
-                        "ท่าทราย",
-                        "บางไผ่",
-                        "บางศรีเมือง",
-                        "บางกร่าง",
-                        "ไทรม้า"
-                  ]
-            }
-      },
-      "ภาคใต้": {
-            "สงขลา": {
-                  "หาดใหญ่": [
-                        "หาดใหญ่",
-                        "คอหงส์",
-                        "คลองแห",
-                        "บ้านพรุ",
-                        "ทุ่งใหญ่",
-                        "ควนลัง",
-                        "คูเต่า",
-                        "ควนลัง"
-                  ]
-            },
-            "นราธิวาส": {
-                  "สุไหงโกลก": [
-                        "สุไหงโกลก",
-                        "ปูโละปูโย",
-                        "มูโนะ",
-                        "สุวารี"
-                  ]
-            },
-            "ยะลา": {
-                  "เบตง": [
-                        "เบตง",
-                        "ยะรม",
-                        "ตาเนาะแมเราะ",
-                        "อัยเยอร์เวง"
-                  ]
-            }
-      },
-      "ภาคตะวันออก": {
-            "ชลบุรี": {
-                  "เมืองชลบุรี": [
-                        "บางปลาสร้อย",
-                        "บ้านสวน",
-                        "หนองไม้แดง",
-                        "เสม็ด"
-                  ],
-                  "บางละมุง": [
-                        "เมืองพัทยา",
-                        "นาเกลือ",
-                        "หนองปรือ",
-                        "ห้วยใหญ่"
-                  ]
-            },
-            "ตราด": {
-                  "คลองใหญ่": [
-                        "คลองใหญ่",
-                        "ไม้รูด",
-                        "หาดเล็ก",
-                        "ชำราก"
-                  ]
-            }
-      },
-      "ภาคตะวันออกเฉียงเหนือ": {
-            "อุบลราชธานี": {
-                  "เมืองอุบลราชธานี": [
-                        "ในเมือง",
-                        "แจระแม",
-                        "ขามใหญ่",
-                        "ปะอาว"
-                  ]
-            },
-            "ขอนแก่น": {
-                  "เมืองขอนแก่น": [
-                        "ในเมือง",
-                        "ศิลา",
-                        "บ้านเป็ด",
-                        "พระลับ"
-                  ]
-            }
-      }
-};
-
-    function onRegionChange() {
-      const reg = document.getElementById('selectRegion').value;
-      const provSelect = document.getElementById('selectProvince');
-      const distSelect = document.getElementById('selectDistrict');
-      const subSelect = document.getElementById('selectSubdistrict');
-
-      provSelect.innerHTML = '<option value="">-- เลือกจังหวัด --</option>';
-      distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
-      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
-      distSelect.disabled = true;
-      subSelect.disabled = true;
-
-      if (reg && THAILAND_REGIONS_DATA[reg]) {
-        provSelect.disabled = false;
-        Object.keys(THAILAND_REGIONS_DATA[reg]).forEach(prov => {
-          provSelect.innerHTML += `<option value="${prov}">${prov}</option>`;
-        });
-      } else {
-        provSelect.disabled = true;
-      }
-    }
-
-    function onProvinceChange() {
-      const reg = document.getElementById('selectRegion').value;
-      const prov = document.getElementById('selectProvince').value;
-      const distSelect = document.getElementById('selectDistrict');
-      const subSelect = document.getElementById('selectSubdistrict');
-
-      distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
-      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
-      distSelect.disabled = true;
-
-      if (prov && THAILAND_REGIONS_DATA[reg][prov]) {
-        distSelect.disabled = false;
-        Object.keys(THAILAND_REGIONS_DATA[reg][prov]).forEach(dist => {
-          distSelect.innerHTML += `<option value="${dist}">${dist}</option>`;
-        });
-      } else {
-        distSelect.disabled = true;
-      }
-    }
-
-    function onDistrictChange() {
-      const reg = document.getElementById('selectRegion').value;
-      const prov = document.getElementById('selectProvince').value;
-      const dist = document.getElementById('selectDistrict').value;
-      const subSelect = document.getElementById('selectSubdistrict');
-
-      subSelect.innerHTML = '<option value="">-- เลือกตำบล --</option>';
-
-      if (dist && THAILAND_REGIONS_DATA[reg][prov][dist]) {
-        subSelect.disabled = false;
-        THAILAND_REGIONS_DATA[reg][prov][dist].forEach(sub => {
-          subSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
-        });
-      } else {
-        subSelect.disabled = true;
-      }
-    }
-
-        function getCurrentUserIdentifier() {
-      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
-      if (currentUser && currentUser.uid) return currentUser.uid;
-      if (window.currentUserProfile && (window.currentUserProfile.name || window.currentUserProfile.email)) {
-        return window.currentUserProfile.name || window.currentUserProfile.email;
-      }
-      return 'GUEST_USER';
-    }
-
-    function getBangkokTimeString() {
-      const now = new Date();
-      const options = { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
-      const formatter = new Intl.DateTimeFormat('en-CA', options);
-      const parts = formatter.formatToParts(now);
-      const partObj = {};
-      parts.forEach(p => partObj[p.type] = p.value);
-      return `${partObj.year}-${partObj.month}-${partObj.day} ${partObj.hour}:${partObj.minute}`;
-    }
-
-    const STATUS_MAP = {
-      'PENDING_BBIM': { text: 'รอ BBIM ตรวจสอบ', class: 'badge-yellow' },
-      'BBIM_APPROVED': { text: 'BBIM อนุมัติสำเร็จ', class: 'badge-green' },
-      'BBIM_REJECTED': { text: 'BBIM ไม่อนุมัติ', class: 'badge-red' }
-    };
-
-    function openImageModal(imgSrc, caption = "ภาพถ่ายหน้างาน") {
-      const modal = document.getElementById('imageModal');
-      modal.querySelector('.image-modal-content').innerHTML = `
-        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-        <img id="modalImage" src="${imgSrc}" alt="Full Size Image" />
-        <div id="modalImageCaption" style="text-align:center; margin-top:10px; color:#fff; font-weight:500;">${caption}</div>
-      `;
-      modal.classList.remove('hidden');
-    }
-
-    function openAllImagesModal(imgList, orderId) {
-      const modal = document.getElementById('imageModal');
-      modal.querySelector('.image-modal-content').innerHTML = `
-        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
-        <h3 style="color:#fff; text-align:center; margin-bottom:15px; font-size:16px;">ภาพถ่ายหน้างาน Order: ${orderId} (${imgList.length} รูป)</h3>
-        <div style="display: flex; flex-direction: column; gap: 15px; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
-          ${imgList.map((src, idx) => `
-            <div style="text-align: center;">
-              <img src="${src}" style="max-width: 100%; max-height: 500px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); object-fit: contain;" />
-              <div style="color: #cbd5e1; font-size: 13px; margin-top: 5px;">รูปที่ ${idx + 1} จาก ${imgList.length}</div>
+    <!-- Image Preview Modal -->
+    <div id="image-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4 m-4 relative flex flex-col items-center">
+            <button id="close-image-modal" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-sm font-bold text-slate-800 mb-3" id="image-modal-title">ภาพประกอบหลักฐาน</h3>
+            <div class="max-h-[75vh] overflow-auto flex items-center justify-center w-full bg-slate-900 rounded-xl p-2 relative">
+                <img id="modal-img-element" src="" alt="Proof Image" class="max-h-[70vh] object-contain rounded-lg">
             </div>
-          `).join('')}
+            <div class="mt-3 flex justify-end w-full">
+                <a id="download-modal-img-btn" href="#" download="proof_image.jpg" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm no-underline">
+                    <i class="fa-solid fa-download"></i> ดาวน์โหลดรูปภาพนี้
+                </a>
+            </div>
         </div>
-      `;
-      modal.classList.remove('hidden');
-    }
+    </div>
 
-    function closeImageModal() { document.getElementById('imageModal').classList.add('hidden'); }
-    function openLogoutModal() { document.getElementById('logoutModal').classList.remove('hidden'); }
-    function closeLogoutModal() { document.getElementById('logoutModal').classList.add('hidden'); }
-    async function confirmLogout() {
-      closeLogoutModal();
-      if (window.auth && window.fbAuth) await window.fbAuth.signOut(window.auth);
-    }
+    <!-- Main Dashboard Container -->
+    <div id="app-container" class="flex-1 flex flex-col hidden">
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                        <i class="fa-solid fa-network-wired text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-bold text-slate-900 leading-tight">Order Dispatch & SOA Late Portal</h1>
+                        <p class="text-xs text-slate-500">ระบบจัดการไฟล์ Excel และติดตามสถานะ Log งานติดตั้งแยกตาม Region (Firebase)</p>
+                    </div>
+                </div>
 
-    async function previewSelectedImages(event) {
-      const newFiles = Array.from(event.target.files);
-      if (newFiles.length === 0) return;
-      if (currentBase64Images.length + newFiles.length > 5) {
-        alert("เลือกรูปภาพได้สูงสุด 5 ภาพ");
-        event.target.value = "";
-        return;
-      }
-      const readPromises = newFiles.map(file => new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.readAsDataURL(file);
-      }));
-      currentBase64Images = currentBase64Images.concat(await Promise.all(readPromises));
-      renderPreviewGallery();
-      event.target.value = "";
-    }
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
+                        <div class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-xs" id="user-avatar-badge">U</div>
+                        <div class="flex flex-col text-left">
+                            <span class="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[150px]" id="user-name-badge">User Name</span>
+                            <span class="text-[10px] text-slate-500 truncate max-w-[150px]" id="user-region-badge">Region: BKK</span>
+                        </div>
+                    </div>
+                    <button id="logout-btn" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="ออกจากระบบ">
+                        <i class="fa-solid fa-power-off text-base"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
 
-    function renderPreviewGallery() {
-      const container = document.getElementById('imagePreviewContainer');
-      const previewList = document.getElementById('imagePreviewList');
-      previewList.innerHTML = '';
-      if (currentBase64Images.length === 0) { container.style.display = 'none'; return; }
-      container.style.display = 'block';
-      currentBase64Images.forEach((imgSrc, idx) => {
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'relative';
-        wrapper.style.display = 'inline-block';
-        wrapper.innerHTML = `
-          <img src="${imgSrc}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" onclick="openImageModal('${imgSrc}')" />
-          <span onclick="currentBase64Images.splice(${idx},1); renderPreviewGallery();" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer;">&times;</span>
-        `;
-        previewList.appendChild(wrapper);
-      });
-    }
-
-    function toggleAuthMode(mode) {
-      authMode = mode;
-      const regFields = document.getElementById('register-fields');
-      const submitBtn = document.getElementById('authSubmitBtn');
-      if (mode === 'register') {
-        regFields.classList.remove('hidden');
-        submitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> ลงทะเบียน (Register)';
-        document.getElementById('tab-login').classList.remove('active');
-        document.getElementById('tab-register').classList.add('active');
-      } else {
-        regFields.classList.add('hidden');
-        submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ (Login)';
-        document.getElementById('tab-register').classList.remove('active');
-        document.getElementById('tab-login').classList.add('active');
-      }
-    }
-
-    async function handleAuthSubmit(e) {
-      e.preventDefault();
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value;
-      if (!window.auth || !window.fbAuth) { alert("กรุณาตั้งค่า Firebase Config"); return; }
-
-      if (authMode === 'login') {
-        try {
-          const res = await window.fbAuth.signInWithEmailAndPassword(window.auth, email, password);
-          const userSnap = await window.fs.getDoc(window.fs.doc(window.db, "users", res.user.uid));
-          if (userSnap.exists() && userSnap.data().status === 'PENDING') {
-            alert("🔒 บัญชีของคุณอยู่ระหว่างรออนุมัติจาก Admin");
-            await window.fbAuth.signOut(window.auth);
-          }
-        } catch (err) { alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message); }
-      } else {
-        const name = document.getElementById('authName').value.trim();
-        const role = document.getElementById('authRole').value;
-        const initialStatus = (role === 'ADMIN') ? 'PENDING' : 'APPROVED';
-        try {
-          const res = await window.fbAuth.createUserWithEmailAndPassword(window.auth, email, password);
-          await window.fs.setDoc(window.fs.doc(window.db, "users", res.user.uid), {
-            uid: res.user.uid, email: email, name: name || email, role: role, status: initialStatus, createdAt: window.fs.serverTimestamp()
-          });
-          alert(initialStatus === 'PENDING' ? "สมัครสำเร็จ! รอ Admin อนุมัติสิทธิ์" : "สมัครสำเร็จ!");
-          if (initialStatus === 'PENDING') await window.fbAuth.signOut(window.auth);
-        } catch (err) { alert("สมัครไม่สำเร็จ: " + err.message); }
-      }
-    }
-
-    function applyRBACPermissions(userRole) {
-      const allowedAll = userRole === 'ADMIN';
-      document.getElementById('btn-role-tech').style.display = (allowedAll || userRole === 'TECHNICIAN') ? 'flex' : 'none';
-      document.getElementById('btn-role-bbim').style.display = (allowedAll || userRole === 'BBIM') ? 'flex' : 'none';
-      document.getElementById('btn-role-all').style.display = allowedAll ? 'flex' : 'none';
-      switchRoleView(allowedAll ? 'TECHNICIAN' : userRole);
-    }
-
-    function switchRoleView(role) {
-      currentRoleView = role;
-      const exportContainer = document.getElementById('exportControlsContainer');
-      if (exportContainer) {
-        if (role === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
-          exportContainer.style.display = 'none';
-        } else {
-          exportContainer.style.display = 'flex';
-        }
-      }
-      document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-      const activeBtnMap = { 'TECHNICIAN': 'btn-role-tech', 'BBIM': 'btn-role-bbim', 'ALL': 'btn-role-all' };
-      if (document.getElementById(activeBtnMap[role])) document.getElementById(activeBtnMap[role]).classList.add('active');
-
-      const headers = {
-        'TECHNICIAN': '<i class="fa-solid fa-screwdriver-wrench"></i> ช่าง (Technician)',
-        'BBIM': '<i class="fa-solid fa-headset"></i> สนับสนุน (BBIM) - ตรวจสอบและให้ความเห็น',
-        'ALL': '<i class="fa-solid fa-layer-group"></i> Master View - ภาพรวมระบบและการล็อกสถานะ'
-      };
-      document.getElementById('panel-role-header').innerHTML = headers[role];
-
-      document.querySelectorAll('.role-section').forEach(sec => sec.classList.add('hidden'));
-      if (role === 'TECHNICIAN') document.getElementById('section-technician').classList.remove('hidden');
-      else if (role === 'BBIM') document.getElementById('section-bbim').classList.remove('hidden');
-      else if (role === 'ALL') document.getElementById('section-all').classList.remove('hidden');
-      window.renderApp();
-    }
-
-    function getGPSLocation(evt) {
-      if (!navigator.geolocation) { alert("เบราว์เซอร์ไม่รองรับ GPS"); return; }
-      const btn = evt.currentTarget || evt.target.closest('button');
-      const icon = btn ? btn.querySelector('i') : null;
-      const textSpan = btn ? btn.querySelector('.gps-btn-text') : null;
-      
-      if (icon) {
-        icon.className = 'fa-solid fa-spinner spin-icon';
-      }
-      if (textSpan) {
-        textSpan.innerText = 'กำลังดึงพิกัด GPS...';
-      }
-      if (btn) btn.disabled = true;
-
-      navigator.geolocation.getCurrentPosition(pos => {
-        if (icon) icon.className = 'fa-solid fa-crosshairs';
-        if (textSpan) textSpan.innerText = 'ดึงพิกัด GPS อัตโนมัติ';
-        if (btn) btn.disabled = false;
-        document.getElementById('custLat').value = pos.coords.latitude.toFixed(6);
-        document.getElementById('custLng').value = pos.coords.longitude.toFixed(6);
-        alert("ดึงพิกัด GPS สำเร็จ!");
-      }, err => {
-        if (icon) icon.className = 'fa-solid fa-crosshairs';
-        if (textSpan) textSpan.innerText = 'ดึงพิกัด GPS อัตโนมัติ';
-        if (btn) btn.disabled = false;
-        alert("ดึงพิกัดไม่ได้: " + err.message);
-      }, { enableHighAccuracy: true, timeout: 10000 });
-    }
-
-    function initPendingUsersListener() {
-      if (!window.db) return;
-      window.fs.onSnapshot(window.fs.query(window.fs.collection(window.db, "users")), snap => {
-        const pending = [], processed = [];
-        snap.forEach(d => {
-          const u = { id: d.id, ...d.data() };
-          if (u.status === 'PENDING') pending.push(u);
-          else if (u.status === 'APPROVED' || u.status === 'REJECTED') processed.push(u);
-        });
-        renderPendingAdminsUI(pending);
-        renderAdminHistoryUI(processed);
-      });
-    }
-
-    function renderPendingAdminsUI(pendingUsers) {
-      const container = document.getElementById('pendingAdminsList');
-      if (!container) return;
-      if (pendingUsers.length === 0) { container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ไม่มีรายการรออนุมัติ</p>'; return; }
-      container.innerHTML = pendingUsers.map(u => `
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
-          <div><strong style="font-size: 13px;">${u.name || u.email}</strong><br><small style="color:var(--text-muted);">อีเมล: ${u.email}</small></div>
-          <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-success" onclick="updateUserStatus('${u.uid}', 'APPROVED')">อนุมัติ</button>
-            <button class="btn btn-sm btn-danger" onclick="updateUserStatus('${u.uid}', 'REJECTED')">ปฏิเสธ</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function renderAdminHistoryUI(processedUsers) {
-      const container = document.getElementById('adminHistoryList');
-      if (!container) return;
-      if (processedUsers.length === 0) { container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">ยังไม่มีประวัติการดำเนินการ</p>'; return; }
-      container.innerHTML = processedUsers.map(u => `
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px;">
-          <div><strong style="font-size: 13px;">${u.name || u.email}</strong><br><small style="color:var(--text-muted);">สถานะ: ${u.status}</small></div>
-        </div>
-      `).join('');
-    }
-
-    async function updateUserStatus(uid, status) {
-      await window.fs.updateDoc(window.fs.doc(window.db, "users", uid), { status: status });
-      alert("อัปเดตสถานะสำเร็จ!");
-    }
-
-    window.renderApp = function() {
-      updateStats();
-      renderTable();
-      renderRolePanels();
-      renderAuditLogs();
-    };
-
-    function updateStats() {
-      const list = window.orders || [];
-      document.getElementById('stat-total').innerText = list.length;
-      document.getElementById('stat-pending').innerText = list.filter(o => o.status === 'PENDING_BBIM').length;
-      document.getElementById('stat-success').innerText = list.filter(o => o.status === 'BBIM_APPROVED').length;
-      document.getElementById('stat-rejected').innerText = list.filter(o => o.status === 'BBIM_REJECTED').length;
-    }
-
-    function renderTable() {
-      const tbody = document.getElementById('orderTableBody');
-      tbody.innerHTML = '';
-      let list = window.orders || [];
-      
-      const searchKeyword = document.getElementById('searchHistoryInput').value.trim().toLowerCase();
-      if (searchKeyword) {
-        list = list.filter(o => 
-          (o.customer && o.customer.toLowerCase().includes(searchKeyword)) ||
-          (o.internetNo && o.internetNo.toLowerCase().includes(searchKeyword)) ||
-          (o.subdistrict && o.subdistrict.toLowerCase().includes(searchKeyword)) ||
-          (o.province && o.province.toLowerCase().includes(searchKeyword)) ||
-          (o.status && o.status.toLowerCase().includes(searchKeyword)) ||
-          (o.id && o.id.toLowerCase().includes(searchKeyword))
-        );
-      }
-
-      if (list.length > 0 && !selectedOrderId) selectedOrderId = list[0].id;
-
-      list.forEach(order => {
-        const isSelected = order.id === selectedOrderId;
-        const statusInfo = STATUS_MAP[order.status] || { text: order.status, class: 'badge-gray' };
-        const tr = document.createElement('tr');
-        if (isSelected) tr.classList.add('selected');
-        tr.onclick = () => selectOrder(order.id);
-
-        const imgList = order.imageUrls || [];
-        const imgTag = imgList.length > 0 ? `<span style="color:var(--primary-color); cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); openAllImagesModal(${JSON.stringify(imgList).replace(/"/g, '&quot;')}, '${order.id}')"><i class="fa-solid fa-image"></i> ${imgList.length} รูป</span>` : 'ไม่มีรูป';
-
-        const timeStr = order.lockedAt ? ` (${order.lockedAt.split(' ')[1] || order.lockedAt})` : '';
-        const lockBadge = order.isLocked ? 
-          `<span style="color:#ef4444; font-size:11px; margin-left:4px; font-weight:600;" title="ล็อกโดย: ${order.lockedByName || 'ผู้อื่น'} เวลา: ${order.lockedAt || '-'}"><i class="fa-solid fa-lock"></i> ${order.lockedByName || 'Locked'}${timeStr}</span>` : '';
-
-        tr.innerHTML = `
-          <td><strong>${order.id}</strong> ${lockBadge}</td>
-          <td>${order.customer}<br><small style="color:var(--primary-color);">${order.internetNo || '-'}</small></td>
-          <td>
-            <div>${order.region} &gt; ${order.province} &gt; ${order.district} &gt; ${order.subdistrict}</div>
-            ${(order.lat && order.lat !== '-' && order.lng && order.lng !== '-') 
-              ? `<small style="color: #0d9488; font-weight: 500; display: inline-block; margin-top: 2px;">
-                   <i class="fa-solid fa-location-dot"></i> GPS: ${order.lat}, ${order.lng}
-                   <a href="https://www.google.com/maps?q=${order.lat},${order.lng}" target="_blank" style="color: #0284c7; margin-left: 4px; text-decoration: underline;" onclick="event.stopPropagation();">
-                     <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i> แผนที่
-                   </a>
-                 </small>`
-              : `<small style="color: #94a3b8; display: inline-block; margin-top: 2px;"><i class="fa-solid fa-location-dot"></i> GPS: ไม่ระบุ</small>`}
-          </td>
-          <td>${imgTag}</td>
-          <td><span class="badge ${statusInfo.class}">${statusInfo.text}</span></td>
-          <td><button class="btn btn-sm btn-secondary" onclick="selectOrder('${order.id}')">ดูข้อมูล</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function selectOrder(id) {
-      selectedOrderId = id;
-      renderTable();
-      renderRolePanels();
-      renderAuditLogs();
-    }
-
-    function renderRolePanels() {
-      const selectedOrder = (window.orders || []).find(o => o.id === selectedOrderId);
-      
-      // BBIM PANEL
-      const bbimContainer = document.getElementById('bbim-action-container');
-      if (selectedOrder) {
-        const isLocked = selectedOrder.isLocked;
-        const isProcessed = selectedOrder.status !== 'PENDING_BBIM'; // สถานะถูกอนุมัติหรือไม่อนุมัติไปแล้ว
-        const currentId = getCurrentUserIdentifier();
-        const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
-        const isAdmin = userProfile.role === 'ADMIN';
-        const isBBIM = userProfile.role === 'BBIM';
-
-        const isTheLocker = isAdmin || (selectedOrder.lockedBy && selectedOrder.lockedBy === currentId);
-        const isActionDisabled = isProcessed || !isLocked || !isTheLocker;
-        
-        let canLock = (isAdmin || isBBIM) && !isProcessed && !isLocked;
-        let canUnlock = isAdmin || (selectedOrder.lockedBy && selectedOrder.lockedBy === currentId);
-        
-        let lockButtonHtml = '';
-        if (!isProcessed) {
-          if (!isLocked && canLock) {
-            lockButtonHtml = `<button class="btn btn-warning" onclick="toggleLockOrder('${selectedOrder.id}', true)"><i class="fa-solid fa-lock"></i> ล็อกสถานะงานเพื่อเริ่มตรวจ</button>`;
-          } else if (isLocked) {
-            if (canUnlock) {
-              lockButtonHtml = `<button class="btn btn-secondary" onclick="toggleLockOrder('${selectedOrder.id}', false)"><i class="fa-solid fa-lock-open"></i> ปลดล็อกสถานะ</button>`;
-            } else {
-              lockButtonHtml = `<span class="badge badge-red" style="padding: 8px 12px; font-size: 13px;"><i class="fa-solid fa-lock"></i> ถูกล็อกโดย: ${selectedOrder.lockedByName || 'ผู้อื่น'} ${selectedOrder.lockedAt ? `(${selectedOrder.lockedAt})` : ''}</span>`;
-            }
-          }
-        }
-
-        let lockInfoNotice = '';
-        if (isProcessed) {
-          const durationDisplay = selectedOrder.processingDuration ? `<br><small style="color:#0369a1;"><i class="fa-solid fa-stopwatch"></i> ใช้เวลาตรวจสอบและพิจารณา: <strong>${selectedOrder.processingDuration}</strong></small>` : '';
-          const processorDisplay = selectedOrder.processedByName ? `<br><small style="color:#0369a1;"><i class="fa-solid fa-user-check"></i> ผู้ตรวจสอบ/อนุมัติ: <strong>${selectedOrder.processedByName}</strong> ${selectedOrder.processedAt ? `(${selectedOrder.processedAt})` : ''}</small>` : '';
-          lockInfoNotice = `
-            <div style="margin-top: 12px; padding: 10px; background: #e2e8f0; border-radius: 6px; color: #475569; font-size: 13px; font-weight: 500;">
-              <i class="fa-solid fa-circle-info" style="color: var(--primary-color);"></i> รายการนี้ทำการ <strong>${selectedOrder.status === 'BBIM_APPROVED' ? 'อนุมัติเรียบร้อยแล้ว' : 'ปฏิเสธ / ไม่อนุมัติเรียบร้อยแล้ว'}</strong> (ไม่สามารถแก้ไขได้อีก)
-              ${processorDisplay}
-              ${durationDisplay}
-            </div>`;
-        } else if (!isLocked) {
-          lockInfoNotice = `
-            <div style="margin-top: 12px; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500;">
-              <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำแนะนำ:</strong> กรุณากดปุ่ม <strong>"ล็อกสถานะงานเพื่อเริ่มตรวจ"</strong> ระบบจะเริ่มจับเวลาและเปิดให้กดอนุมัติ/ไม่อนุมัติ
-            </div>`;
-        } else {
-          // Live timer calculation
-          let initialSec = 0;
-          if (selectedOrder.lockedAtTimestamp) {
-            initialSec = Math.max(0, Math.floor((Date.now() - selectedOrder.lockedAtTimestamp) / 1000));
-          }
-          lockInfoNotice = `
-            <p style="margin-top: 6px; font-size: 13px; color: #dc2626; font-weight: 600;">
-              <i class="fa-solid fa-user-lock"></i> สถานะงานขณะนี้: ล็อกโดย <strong>${selectedOrder.lockedByName || 'ผู้อื่น'}</strong> 
-              <span style="font-weight:400; color:#b91c1c;">(เริ่มเมื่อ: ${selectedOrder.lockedAt || '-'})</span><br>
-              <span style="color:#0284c7; font-size:13px; display:inline-block; margin-top:4px;">
-                <i class="fa-solid fa-stopwatch spin-icon"></i> เวลาที่ใช้ไป: <strong id="live-timer-counter" data-timestamp="${selectedOrder.lockedAtTimestamp || Date.now()}">${formatSecondsToTime(initialSec)}</strong>
-              </span>
-            </p>`;
-        }
-
-        bbimContainer.innerHTML = `
-          <div style="background: var(--bg-light); padding: 16px; border-radius: 6px;">
-            <h4>Order: ${selectedOrder.id}</h4>
-            <p><strong>ลูกค้า:</strong> ${selectedOrder.customer} (Internet: ${selectedOrder.internetNo})</p>
-            <p><strong>ที่อยู่:</strong> ${selectedOrder.region} / ${selectedOrder.province} / ${selectedOrder.district} / ${selectedOrder.subdistrict}</p>
-            <p><strong>Note จากช่าง:</strong> <span style="color: #d97706;">${selectedOrder.techNote || 'ไม่มีหมายเหตุ'}</span></p>
-            ${lockInfoNotice}
+        <!-- Main Body -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
             
-            <div style="margin-top: 15px;">
-              <label><strong>Note ตอบกลับจาก BBIM แจ้งช่าง:</strong></label>
-              <textarea id="bbimResponseNote" class="form-control" rows="2" placeholder="ระบุเหตุผล หรือข้อเสนอแนะ..." ${isActionDisabled ? 'disabled' : ''}>${selectedOrder.bbimNote || ''}</textarea>
+            <!-- Statistics Bar (Admin Only) -->
+            <div id="stats-section-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50/80 text-indigo-600 flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-file-excel"></i></div>
+                    <div><p class="text-xs text-slate-500 font-medium">Log ทั้งหมดในระบบ</p><h3 class="text-2xl font-bold text-slate-900" id="stat-total-logs">0</h3></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-map-location-dot"></i></div>
+                    <div><p class="text-xs text-slate-500 font-medium">จำนวน Region ที่พบ</p><h3 class="text-2xl font-bold text-slate-900" id="stat-region-count">0</h3></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div><p class="text-xs text-slate-500 font-medium">รายการ SOA Late</p><h3 class="text-2xl font-bold text-slate-900" id="stat-late-count">0</h3></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-image"></i></div>
+                    <div><p class="text-xs text-slate-500 font-medium">ภาพประกอบหลักฐาน</p><h3 class="text-2xl font-bold text-slate-900" id="stat-image-count">0</h3></div>
+                </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center;">
-              <button class="btn btn-success" onclick="handleBBIMAction('${selectedOrder.id}', 'APPROVE')" ${isActionDisabled ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i class="fa-solid fa-check"></i> อนุมัติ</button>
-              <button class="btn btn-danger" onclick="handleBBIMAction('${selectedOrder.id}', 'REJECT')" ${isActionDisabled ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
-              ${lockButtonHtml}
+            <!-- Action Section: Template & Upload -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Download Template Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                    <div>
+                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 text-lg"><i class="fa-solid fa-file-arrow-down"></i></div>
+                        <h3 class="text-lg font-bold text-slate-900">ดาวน์โหลด Template Excel</h3>
+                        <p class="text-xs text-slate-500 mt-1">มีคอลัมน์ Region เป็นคอลัมน์แรกในแถวที่ 1 เพื่อระบุโซนของแต่ละ Order ได้อิสระ</p>
+                    </div>
+                    <div class="mt-6">
+                        <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,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" download="Order_Dispatch_Template_With_Region.xlsx" id="download-template-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2 text-center no-underline">
+                            <i class="fa-solid fa-download"></i> ดาวน์โหลด Template (.xlsx)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Upload Excel Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-indigo-50/80 text-indigo-600 flex items-center justify-center text-lg"><i class="fa-solid fa-file-arrow-up"></i></div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-slate-900">อัปโหลดไฟล์ Excel เข้าสู่ระบบ</h3>
+                                    <p class="text-xs text-slate-500">เลือกไฟล์ Excel ที่ระบุ Region ในคอลัมน์แรก และแนบภาพประกอบหลักฐาน (ถ้ามี)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Drop Zone -->
+                        <label for="excel-file-input" id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/50 rounded-xl p-6 text-center transition cursor-pointer flex flex-col items-center justify-center block relative">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
+                            <p class="text-sm font-medium text-slate-700">ลากไฟล์ Excel มาวางที่นี่ หรือ <span class="text-indigo-600 underline">คลิกเพื่อเลือกไฟล์</span></p>
+                            <p class="text-xs text-slate-400 mt-1">(.xlsx, .xls)</p>
+                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- File Selected Actions & Enhanced Image Attachment -->
+                    <div id="file-selected-actions" class="mt-4 hidden flex flex-col gap-3 bg-indigo-50/80/70 border border-blue-100 p-4 rounded-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="fa-solid fa-file-excel text-emerald-600 text-lg"></i>
+                                <span id="selected-file-name" class="text-xs font-semibold text-slate-700 truncate">filename.xlsx</span>
+                                <span id="selected-file-rows" class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-medium">0 แถว</span>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 self-end sm:self-auto">
+                                <button id="cancel-upload-btn" class="px-3 py-2 text-xs text-slate-600 hover:bg-white rounded-lg transition border border-slate-200 bg-white">ยกเลิก</button>
+                                <button id="confirm-upload-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check"></i> บันทึกข้อมูลลง Firebase
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Multi-Image Attachment Box (Max 5 Images) -->
+                        <div class="pt-3 border-t border-blue-200/60 flex flex-col gap-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-indigo-600 shadow-xs">
+                                        <i class="fa-solid fa-images text-lg"></i>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-image text-indigo-600"></i> ภาพประกอบหลักฐาน (สูงสุด 5 รูป)</span>
+                                        <span class="text-[11px] text-slate-500" id="image-status-text">ยังไม่ได้เลือกรูปภาพ (เลือกได้สูงสุด 5 รูป)</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <label class="cursor-pointer bg-white hover:bg-indigo-600 hover:text-white text-indigo-600 border border-blue-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-xs">
+                                        <i class="fa-solid fa-paperclip"></i> <span id="attach-btn-text">เลือกรูปภาพ (สูงสุด 5 รูป)</span>
+                                        <input type="file" id="batch-image-input" accept="image/*" multiple class="hidden">
+                                    </label>
+                                    <button type="button" id="remove-images-btn" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-medium transition hidden" title="ลบรูปภาพทั้งหมด">
+                                        <i class="fa-solid fa-trash-can"></i> ลบทั้งหมด
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Thumbnails Grid for Multiple Images -->
+                            <div id="multi-image-preview-grid" class="flex flex-wrap gap-2 hidden"></div>
+                        </div>
+
+                        <!-- Per-Row Image Attachment Section -->
+                        <div class="pt-3 border-t border-blue-200/60 flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-check text-indigo-600"></i> แนบรูปภาพแยกเฉพาะแถว (เลือกได้สูงสุด 5 รูปต่อแถว)
+                                </span>
+                                <span class="text-[11px] text-slate-500">เลือกแนบรูปเจาะจงราย Order ได้ด้านล่าง</span>
+                            </div>
+                            <div class="max-h-60 overflow-y-auto bg-white rounded-xl border border-blue-200/80 divide-y divide-slate-100" id="row-attachment-list">
+                                <!-- Dynamic rows from Excel will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>`;
-      } else {
-        bbimContainer.innerHTML = '<p class="text-muted">กรุณาเลือก Order จากตาราง</p>';
-      }
-    }
 
-    function renderAuditLogs() {
-      const container = document.getElementById('auditLogContainer');
-      const orderIdSpan = document.getElementById('selected-order-id');
-      const noteBox = document.getElementById('bbimNoteDisplayBox');
-      const selectedOrder = (window.orders || []).find(o => o.id === selectedOrderId);
+            <!-- Data Log Display Section -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+                <div class="p-5 border-b border-slate-200 flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-table-list"></i></div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Log ข้อมูลงานติดตั้ง (Order Dispatch Log)</h3>
+                                <p class="text-xs text-slate-500">ข้อมูลซิงค์แบบเรียลไทม์จาก Firebase Firestore</p>
+                            </div>
+                        </div>
 
-      if (!selectedOrder) {
-        orderIdSpan.innerText = '[กรุณาเลือก Order]';
-        noteBox.style.display = 'none';
-        container.innerHTML = '<div class="log-item"><span class="log-text">ไม่มีข้อมูล</span></div>';
-        return;
-      }
+                        <div id="export-section-container" class="flex items-center self-start sm:self-auto bg-emerald-600 rounded-xl overflow-hidden shadow-sm transition-all duration-300 hidden">
+                            <button id="export-dropdown-btn" class="px-3.5 py-2 text-white text-xs font-semibold hover:opacity-90 transition flex items-center gap-1.5">
+                                <i id="export-btn-icon" class="fa-solid fa-file-excel"></i> <span id="export-btn-text">Export Excel</span>
+                            </button>
+                            <select id="export-format-select" class="bg-emerald-700 text-white text-xs font-semibold px-2.5 py-2 focus:outline-none cursor-pointer border-l border-emerald-500/60 transition-colors">
+                                <option value="xlsx" class="bg-white text-slate-800">Excel (.xlsx)</option>
+                                <option value="txt" class="bg-white text-slate-800">Text Format (.txt)</option>
+                            </select>
+                        </div>
+                    </div>
 
-      orderIdSpan.innerText = selectedOrder.id + ' (' + selectedOrder.customer + ')';
-      
-      if (selectedOrder.bbimNote) {
-        noteBox.style.display = 'block';
-        noteBox.innerHTML = `<strong><i class="fa-solid fa-comment-dots" style="color:var(--primary-color);"></i> Note / ข้อความจาก BBIM แจ้งช่าง:</strong> ${selectedOrder.bbimNote}`;
-      } else {
-        noteBox.style.display = 'none';
-      }
+                    <!-- Filter Bar -->
+                    <div class="flex flex-wrap items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                        <div class="relative flex-1 min-w-[200px]">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs"><i class="fa-solid fa-search"></i></span>
+                            <input type="text" id="log-search-input" placeholder="ค้นหา Order No, Team, Staff..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none">
+                        </div>
 
-      container.innerHTML = '';
-      (selectedOrder.logs || []).forEach(log => {
-        const rLower = (log.role || '').toLowerCase();
-        const roleClass = rLower.includes('tech') ? 'role-technician' : (rLower.includes('bbim') ? 'role-bbim' : 'role-system');
-        container.innerHTML += `<div class="log-item"><span class="log-time">${log.time}</span><span class="log-role ${roleClass}">${log.role}</span><span class="log-text">${log.text}</span></div>`;
-      });
-    }
+                        <select id="filter-region" class="bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-700 font-medium">
+                            <option value="">ทุก Region (All Regions)</option>
+                            <option value="BKK">BKK</option>
+                            <option value="ROC">ROC</option>
+                            <option value="RON">RON</option>
+                            <option value="RONE">RONE</option>
+                            <option value="ROS">ROS</option>
+                        </select>
 
-    function handleRegisterOrder(e) {
-      e.preventDefault();
-      const region = document.getElementById('selectRegion').value;
-      const province = document.getElementById('selectProvince').value;
-      const district = document.getElementById('selectDistrict').value;
-      const subdistrict = document.getElementById('selectSubdistrict').value;
+                        <div class="flex flex-wrap items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
+                            <span class="text-slate-500 font-medium"><i class="fa-regular fa-calendar text-indigo-600"></i> วันที่:</span>
+                            <input type="date" id="filter-date-start" class="text-slate-700 bg-transparent cursor-pointer">
+                            <span>ถึง</span>
+                            <input type="date" id="filter-date-end" class="text-slate-700 bg-transparent cursor-pointer">
+                        </div>
 
-      pendingOrderData = {
-        customer: document.getElementById('custName').value,
-        internetNo: document.getElementById('internetNo').value,
-        region: region, province: province, district: district, subdistrict: subdistrict,
-        address: document.getElementById('custAddress').value,
-        lat: document.getElementById('custLat').value || '-',
-        lng: document.getElementById('custLng').value || '-',
-        imageUrls: [...currentBase64Images],
-        techNote: document.getElementById('techNote').value,
-        isLocked: false
-      };
+                        <button id="reset-filters-btn" class="px-3 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate-left"></i> ล้างตัวกรอง
+                        </button>
+                    </div>
+                </div>
 
-      document.getElementById('reviewOrderContent').innerHTML = `
-        <div><strong>ชื่อลูกค้า:</strong> ${pendingOrderData.customer}</div>
-        <div><strong>Internet No:</strong> ${pendingOrderData.internetNo}</div>
-        <div><strong>พื้นที่:</strong> ${region} > ${province} > ${district} > ${subdistrict}</div>
-        <div><strong>ที่อยู่:</strong> ${pendingOrderData.address}</div>
-        <div><strong>Note จากช่าง:</strong> ${pendingOrderData.techNote || '-'}</div>
-        <div><strong>รูปภาพหน้างาน:</strong> ${pendingOrderData.imageUrls.length} รูป</div>
-      `;
-      document.getElementById('reviewOrderModal').classList.remove('hidden');
-    }
+                <!-- Table Container -->
+                <div class="overflow-x-auto max-h-[500px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-50 sticky top-0 z-10 text-slate-600 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="p-3 whitespace-nowrap">#</th>
+                                <th class="p-3 whitespace-nowrap">Region</th>
+                                <th class="p-3 whitespace-nowrap">Team Name</th>
+                                <th class="p-3 whitespace-nowrap">Staff name</th>
+                                <th class="p-3 whitespace-nowrap">ประเภทของงาน</th>
+                                <th class="p-3 whitespace-nowrap">ORDER NO</th>
+                                <th class="p-3 whitespace-nowrap">Internet ID</th>
+                                <th class="p-3 whitespace-nowrap">วันนัดหมาย</th>
+                                <th class="p-3 whitespace-nowrap">Slot (xx.xx-xx.xx)</th>
+                                <th class="p-3 whitespace-nowrap">Soa Late Reason</th>
+                                <th class="p-3 whitespace-nowrap">Soa Late Reason Remark</th>
+                                <th class="p-3 whitespace-nowrap">Relax Process Install</th>
+                                <th class="p-3 whitespace-nowrap bg-indigo-50/80/70 text-blue-800">วันที่อัพโหลดข้อมูล</th>
+                                <th class="p-3 whitespace-nowrap text-center">ภาพประกอบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <tr>
+                                <td colspan="14" class="text-center py-8 text-slate-400">
+                                    <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 block text-indigo-600"></i>
+                                    กำลังโหลดข้อมูลจาก Firebase...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-    function closeReviewModal() { document.getElementById('reviewOrderModal').classList.add('hidden'); }
+                <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                    <span id="table-row-count">แสดงผล 0 รายการ</span>
+                </div>
+            </div>
 
-    async function confirmAndSaveOrder() {
-      closeReviewModal();
-      if (!pendingOrderData) return;
-      try {
-        const newId = `ORD-2026-00${(window.orders || []).length + 1}`;
-        const timeNow = getBangkokTimeString();
-        const userProfile = window.currentUserProfile || { name: 'Technician', phone: '-' };
+            <!-- Upload Batch History Section -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 mb-8">
+                <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> ประวัติการอัปโหลดไฟล์ (Firebase Firestore)
+                </h3>
+                <div id="batch-history-list" class="space-y-3">
+                    <p class="text-xs text-slate-400">กำลังโหลดประวัติ...</p>
+                </div>
+            </div>
 
-        const newOrder = {
-          techName: userProfile.name || "-",
-          techPhone: userProfile.phone || "-",
-          id: newId,
-          ...pendingOrderData,
-          status: "PENDING_BBIM",
-          bbimNote: "",
-          createdAtText: timeNow,
-          createdAtString: new Date().toISOString().split('T')[0],
-          logs: [{ time: timeNow, role: "TECHNICIAN", text: `ช่าง ${userProfile.name} บันทึกข้อมูลและส่งให้ BBIM ตรวจสอบ` }]
+        </main>
+    </div>
+
+    <!-- Firebase Script Logic -->
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCYZkSPM9eq0NEkhzte9b4-6oomonx14Bc",
+            authDomain: "order-dispatch-prod.firebaseapp.com",
+            projectId: "order-dispatch-prod",
+            storageBucket: "order-dispatch-prod.firebasestorage.app",
+            messagingSenderId: "645084357247",
+            appId: "1:645084357247:web:5d811e69e83065936dd54a"
         };
 
-        if (window.db && window.fs) {
-          await window.fs.setDoc(window.fs.doc(window.db, "orders", newId), {
-            ...newOrder,
-            createdAt: window.fs.serverTimestamp()
-          });
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let parsedExcelData = [];
+        let currentFileName = "";
+        let currentBatchImages = [];
+        let rowImagesMap = {};
+        let allLogs = [];
+        let uploadBatches = [];
+
+        // DOM Elements
+        const authModal = document.getElementById("auth-modal");
+        const imageModal = document.getElementById("image-modal");
+        const closeImageModalBtn = document.getElementById("close-image-modal");
+        const modalImgElement = document.getElementById("modal-img-element");
+        const imageModalTitle = document.getElementById("image-modal-title");
+
+        const appContainer = document.getElementById("app-container");
+        const authForm = document.getElementById("auth-form");
+        const authTitle = document.getElementById("auth-title");
+        const authSubtitle = document.getElementById("auth-subtitle");
+        const authEmailInput = document.getElementById("auth-email");
+        const authPasswordInput = document.getElementById("auth-password");
+        const authConfirmPasswordInput = document.getElementById("auth-confirm-password");
+        const confirmPasswordField = document.getElementById("confirm-password-field");
+        const signupExtraFields = document.getElementById("signup-extra-fields");
+        const authFullnameInput = document.getElementById("auth-fullname");
+        const authRegionSelect = document.getElementById("auth-region");
+        const authRoleSelect = document.getElementById("auth-role");
+        const regionContainer = document.getElementById("region-field-container");
+
+        const authError = document.getElementById("auth-error");
+        const authErrorText = document.getElementById("auth-error-text");
+        const authSubmitBtn = document.getElementById("auth-submit-btn");
+        const authSubmitText = document.getElementById("auth-submit-text");
+        const toggleAuthModeBtn = document.getElementById("toggle-auth-mode");
+        const logoutBtn = document.getElementById("logout-btn");
+
+        const userNameBadge = document.getElementById("user-name-badge");
+        const userRegionBadge = document.getElementById("user-region-badge");
+        const userAvatarBadge = document.getElementById("user-avatar-badge");
+
+        const statTotalLogs = document.getElementById("stat-total-logs");
+        const statRegionCount = document.getElementById("stat-region-count");
+        const statLateCount = document.getElementById("stat-late-count");
+        const statImageCount = document.getElementById("stat-image-count");
+
+        const downloadTemplateBtn = document.getElementById("download-template-btn");
+        const exportDropdownBtn = document.getElementById("export-dropdown-btn");
+        const exportFormatSelect = document.getElementById("export-format-select");
+
+        const dropZone = document.getElementById("drop-zone");
+        const excelFileInput = document.getElementById("excel-file-input");
+        const fileSelectedActions = document.getElementById("file-selected-actions");
+        const selectedFileName = document.getElementById("selected-file-name");
+        const selectedFileRows = document.getElementById("selected-file-rows");
+        const cancelUploadBtn = document.getElementById("cancel-upload-btn");
+        const confirmUploadBtn = document.getElementById("confirm-upload-btn");
+
+        const batchImageInput = document.getElementById("batch-image-input");
+        const attachBtnText = document.getElementById("attach-btn-text");
+        const imageStatusText = document.getElementById("image-status-text");
+        const imagePreviewContainer = document.getElementById("image-preview-container");
+        const thumbPreview = document.getElementById("thumb-preview");
+        const removeImageBtn = document.getElementById("remove-image-btn");
+
+        const logSearchInput = document.getElementById("log-search-input");
+        const filterRegion = document.getElementById("filter-region");
+        const filterDateStart = document.getElementById("filter-date-start");
+        const filterDateEnd = document.getElementById("filter-date-end");
+        const resetFiltersBtn = document.getElementById("reset-filters-btn");
+
+        const logTableBody = document.getElementById("log-table-body");
+        const tableRowCount = document.getElementById("table-row-count");
+        const batchHistoryList = document.getElementById("batch-history-list");
+
+        let isSignUpMode = false;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Check Firebase Auth Session
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    // Fetch user profile from Firestore
+                    const userDoc = await db.collection("users").doc(user.uid).get();
+                    if (userDoc.exists) {
+                        currentUser = { uid: user.uid, ...userDoc.data() };
+                    } else {
+                        currentUser = { uid: user.uid, email: user.email, fullName: user.displayName || "User", region: "BKK", role: "user" };
+                    }
+                    showApp();
+                    loadDataFromFirebase();
+                } else {
+                    currentUser = null;
+                    showAuthModal();
+                }
+            });
+
+            setupEventListeners();
+        });
+
+        function showAuthModal() {
+            authModal.classList.remove("hidden");
+            appContainer.classList.add("hidden");
+            if (authSubmitBtn) authSubmitBtn.disabled = false;
+            if (authSubmitText) authSubmitText.textContent = isSignUpMode ? "สมัครสมาชิก" : "เข้าสู่ระบบ";
+            if (authError) authError.classList.add("hidden");
         }
 
-        selectedOrderId = newId;
-        document.getElementById('orderForm').reset();
-        currentBase64Images = [];
-        document.getElementById('imagePreviewContainer').style.display = 'none';
-        pendingOrderData = null;
-        alert("ส่งข้อมูลให้ BBIM ตรวจสอบ");
-        window.renderApp();
-      } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
-    }
+        function showApp() {
+            authModal.classList.add("hidden");
+            appContainer.classList.remove("hidden");
+            if (currentUser) {
+                userNameBadge.textContent = currentUser.fullName || currentUser.email;
+                const roleLabel = currentUser.role === 'admin' ? '👑 Admin' : '👤 User';
+                userRegionBadge.textContent = `${roleLabel} • Region: ${currentUser.region || 'General'}`;
+                userAvatarBadge.textContent = (currentUser.fullName || currentUser.email).charAt(0).toUpperCase();
 
-    function calculateDurationText(startTimestamp, endTimestamp) {
-      if (!startTimestamp) return 'ไม่ระบุ';
-      const diffSec = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
-      const mins = Math.floor(diffSec / 60);
-      const secs = diffSec % 60;
-      if (mins > 0) {
-        return `${mins} นาที ${secs} วินาที`;
-      }
-      return `${secs} วินาที`;
-    }
+                // ซ่อนหรือแสดงปุ่ม Export และ Statistics Bar เฉพาะ Admin เท่านั้น
+                const exportSection = document.getElementById("export-section-container");
+                const statsSection = document.getElementById("stats-section-container");
+                
+                if (exportSection) {
+                    if (currentUser.role === 'admin') {
+                        exportSection.classList.remove("hidden");
+                    } else {
+                        exportSection.classList.add("hidden");
+                    }
+                }
 
-    function formatSecondsToTime(totalSecs) {
-      const mins = Math.floor(totalSecs / 60);
-      const secs = totalSecs % 60;
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
+                if (statsSection) {
+                    if (currentUser.role === 'admin') {
+                        statsSection.classList.remove("hidden");
+                    } else {
+                        statsSection.classList.add("hidden");
+                    }
+                }
 
-        async function handleBBIMAction(orderId, action) {
-      const order = (window.orders || []).find(o => o.id === orderId);
-      if (!order) return;
-      if (order.status !== 'PENDING_BBIM') {
-        alert("❌ รายการนี้ได้รับการอนุมัติหรือไม่อนุมัติไปแล้ว ไม่สามารถแก้ไขได้อีก");
-        return;
-      }
-      if (!order.isLocked) {
-        alert("❌ กรุณากด 'ล็อกสถานะงาน' ก่อนทำรายการอนุมัติหรือปฏิเสธทุกครั้ง");
-        return;
-      }
+                // หากเป็น User ทั่วไป ให้ล็อก Dropdown Region เป็น Region ของตัวเองทันทีและห้ามเปลี่ยน
+                if (currentUser.role !== 'admin') {
+                    filterRegion.value = currentUser.region;
+                    filterRegion.disabled = true;
+                    filterRegion.classList.add("bg-slate-100", "cursor-not-allowed");
+                } else {
+                    filterRegion.disabled = false;
+                    filterRegion.classList.remove("bg-slate-100", "cursor-not-allowed");
+                }
+            }
+        }
 
-      const userProfile = window.currentUserProfile || { role: 'BBIM', name: 'BBIM User' };
-      const isAdmin = userProfile.role === 'ADMIN';
-      const currentId = getCurrentUserIdentifier();
-      if (!isAdmin && order.lockedBy && order.lockedBy !== currentId) {
-        alert("❌ รายการนี้ถูกล็อกโดยผู้ใช้อื่น คุณไม่สามารถทำรายการอนุมัติหรือไม่อนุมัติได้");
-        return;
-      }
+        function setupEventListeners() {
+            if (authRoleSelect && regionContainer) {
+                authRoleSelect.addEventListener("change", () => {
+                    if (authRoleSelect.value === "admin") {
+                        regionContainer.classList.add("hidden");
+                    } else {
+                        regionContainer.classList.remove("hidden");
+                    }
+                });
+            }
 
-      const noteText = document.getElementById('bbimResponseNote').value;
-      const timeNow = getBangkokTimeString();
-      const nowMs = Date.now();
-      const durationText = calculateDurationText(order.lockedAtTimestamp, nowMs);
+            toggleAuthModeBtn.addEventListener("click", () => {
+                isSignUpMode = !isSignUpMode;
+                if (isSignUpMode) {
+                    authTitle.textContent = "สมัครสมาชิกใหม่ (Firebase)";
+                    authSubtitle.textContent = "สร้างบัญชีผู้ใช้งานผ่าน Firebase Authentication";
+                    authSubmitText.textContent = "สมัครสมาชิก";
+                    toggleAuthModeBtn.textContent = "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ";
+                    signupExtraFields.classList.remove("hidden");
+                    confirmPasswordField.classList.remove("hidden");
+                } else {
+                    authTitle.textContent = "เข้าสู่ระบบ Order Portal";
+                    authSubtitle.textContent = "เชื่อมต่อ Firebase Cloud Database เรียบร้อย";
+                    authSubmitText.textContent = "เข้าสู่ระบบ";
+                    toggleAuthModeBtn.textContent = "ยังไม่มีบัญชี? สมัครสมาชิกใหม่";
+                    signupExtraFields.classList.add("hidden");
+                    confirmPasswordField.classList.add("hidden");
+                }
+                authError.classList.add("hidden");
+            });
 
-      const currentUser = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
-      const currentUid = currentUser ? currentUser.uid : '';
-      const processorName = userProfile.name || (currentUser ? currentUser.email : 'BBIM');
+            authForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const email = authEmailInput.value.trim();
+                const password = authPasswordInput.value.trim();
 
-      const newStatus = action === 'APPROVE' ? 'BBIM_APPROVED' : 'BBIM_REJECTED';
-      const actionText = action === 'APPROVE' ? 'BBIM อนุมัติงานสำเร็จ' : 'BBIM ไม่อนุมัติงาน';
+                if (!email || !password) {
+                    showAuthError("กรุณากรอกอีเมลและรหัสผ่าน");
+                    return;
+                }
 
-      const newLogs = [...(order.logs || []), { 
-        time: timeNow, 
-        role: "BBIM", 
-        text: `${actionText} โดย ${processorName} (ใช้เวลาตรวจสอบ: ${durationText}) (Note: ${noteText || 'ไม่มี'})` 
-      }];
+                authSubmitBtn.disabled = true;
+                authSubmitText.textContent = "กำลังดำเนินการ...";
 
-      if (window.db && window.fs) {
-        await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), {
-          status: newStatus,
-          bbimNote: noteText,
-          processedAt: timeNow,
-          processedBy: currentUid,
-          processedByName: processorName,
-          processingDuration: durationText,
-          logs: newLogs
-        });
-        alert(`บันทึกผลการตรวจสอบเรียบร้อยแล้ว!\n⏱️ ผู้ตรวจสอบ: ${processorName}\n⏱️ ใช้เวลาพิจารณา: ${durationText}`);
-      }
-    }
+                try {
+                    if (isSignUpMode) {
+                        const fullName = authFullnameInput.value.trim();
+                        const role = authRoleSelect ? authRoleSelect.value : "user";
+                        const region = role === "admin" ? "ALL" : authRegionSelect.value;
+                        const confirmPassword = authConfirmPasswordInput.value.trim();
 
-    async function toggleLockOrder(orderId, lockState) {
-      const order = (window.orders || []).find(o => o.id === orderId);
-      if (!order) return;
-      const currentId = getCurrentUserIdentifier();
-      const userProfile = window.currentUserProfile || { role: 'TECHNICIAN', name: 'User' };
-      const isAdmin = userProfile.role === 'ADMIN';
-      const isBBIM = userProfile.role === 'BBIM';
-      const userName = userProfile.name || (window.auth && window.auth.currentUser ? window.auth.currentUser.email : 'User');
+                        if (!fullName || (role !== "admin" && !region)) {
+                            throw new Error("กรุณากรอกชื่อและเลือก Region ให้ครบถ้วน");
+                        }
+                        if (password !== confirmPassword) {
+                            throw new Error("รหัสผ่านไม่ตรงกัน");
+                        }
 
-      if (!isAdmin && !isBBIM) {
-        alert("คุณไม่มีสิทธิ์ในการล็อกหรือปลดล็อกสถานะ");
-        return;
-      }
+                        // Create user in Firebase Auth
+                        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                        const uid = userCredential.user.uid;
 
-      if (!lockState && !isAdmin && order.lockedBy && order.lockedBy !== currentId) {
-        alert("❌ คุณไม่สามารถปลดล็อกได้ เนื่องจากสถานะถูกล็อกโดย User ท่านอื่น (เฉพาะ Admin หรือ User ผู้ล็อกเดิมเท่านั้นที่ปลดได้)");
-        return;
-      }
+                        // Save user profile in Firestore
+                        await db.collection("users").doc(uid).set({
+                            email,
+                            fullName,
+                            region,
+                            role,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
 
-      if (window.db && window.fs) {
-        const timeNow = getBangkokTimeString();
-        const nowMs = Date.now();
+                        alert("สมัครสมาชิกสำเร็จและเข้าสู่ระบบเรียบร้อย!");
+                    } else {
+                        // Sign in with Firebase Auth
+                        await auth.signInWithEmailAndPassword(email, password);
+                    }
+                } catch (err) {
+                    showAuthError(err.message);
+                    authSubmitBtn.disabled = false;
+                    authSubmitText.textContent = isSignUpMode ? "สมัครสมาชิก" : "เข้าสู่ระบบ";
+                }
+            });
+
+            logoutBtn.addEventListener("click", async () => {
+                try {
+                    await auth.signOut();
+                    showAuthModal();
+                } catch (err) {
+                    console.error("Logout error:", err);
+                    showAuthModal();
+                }
+            });
+
+            closeImageModalBtn.addEventListener("click", () => imageModal.classList.add("hidden"));
+
+            batchImageInput.addEventListener("change", (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                if (currentBatchImages.length + files.length > 5) {
+                    alert("คุณสามารถแนบรูปภาพได้สูงสุดไม่เกิน 5 รูปครับ");
+                    return;
+                }
+
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement("canvas");
+                            const MAX_W = 800, MAX_H = 800;
+                            let w = img.width, h = img.height;
+                            if (w > h && w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
+                            else if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
+                            canvas.width = w; canvas.height = h;
+                            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                            const base64Str = canvas.toDataURL("image/jpeg", 0.7);
+                            
+                            currentBatchImages.push({ name: file.name, base64: base64Str });
+                            updateMultiImagePreviews();
+                        };
+                        img.src = evt.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            function updateMultiImagePreviews() {
+                const previewGrid = document.getElementById("multi-image-preview-grid");
+                const removeImagesBtn = document.getElementById("remove-images-btn");
+                
+                if (currentBatchImages.length > 0) {
+                    previewGrid.classList.remove("hidden");
+                    removeImagesBtn.classList.remove("hidden");
+                    imageStatusText.textContent = `แนบรูปแล้ว ${currentBatchImages.length} รูป (สูงสุด 5 รูป)`;
+                    imageStatusText.classList.add("text-indigo-600", "font-medium");
+                    attachBtnText.textContent = "เพิ่มรูปภาพ";
+
+                    previewGrid.innerHTML = currentBatchImages.map((imgObj, idx) => `
+                        <div class="relative w-16 h-16 rounded-lg border border-slate-300 overflow-hidden bg-white shadow-xs group">
+                            <img src="${imgObj.base64}" alt="${imgObj.name}" class="w-full h-full object-cover cursor-pointer" onclick="openImageViewer('${imgObj.base64}', '${imgObj.name}')" title="คลิกเพื่อดูรูปใหญ่">
+                            <button type="button" onclick="removeSingleImage(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-80 hover:opacity-100 transition" title="ลบรูปนี้">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    `).join("");
+                } else {
+                    previewGrid.classList.add("hidden");
+                    removeImagesBtn.classList.add("hidden");
+                    imageStatusText.textContent = "ยังไม่ได้เลือกรูปภาพ (เลือกได้สูงสุด 5 รูป)";
+                    imageStatusText.classList.remove("text-indigo-600", "font-medium");
+                    attachBtnText.textContent = "เลือกรูปภาพ (สูงสุด 5 รูป)";
+                }
+            }
+
+            window.removeSingleImage = function(index) {
+                currentBatchImages.splice(index, 1);
+                updateMultiImagePreviews();
+            };
+
+            const removeImagesBtn = document.getElementById("remove-images-btn");
+            if (removeImagesBtn) {
+                removeImagesBtn.addEventListener("click", () => {
+                    currentBatchImages = [];
+                    batchImageInput.value = "";
+                    updateMultiImagePreviews();
+                });
+            }
+
+            if (removeImageBtn) removeImageBtn.addEventListener("click", () => {
+                currentBatchImages = []; updateMultiImagePreviews();
+                batchImageInput.value = "";
+                thumbPreview.src = "";
+                imagePreviewContainer.classList.add("hidden");
+                attachBtnText.textContent = "แนบภาพประกอบ";
+                imageStatusText.textContent = "ยังไม่ได้เลือกรูปภาพ";
+                removeImageBtn.classList.add("hidden");
+            });
+
+            dropZone.addEventListener("click", (e) => {
+                e.stopPropagation();
+                excelFileInput.click();
+            });
+            
+            const clickToSelectLink = dropZone.querySelector("span");
+            if (clickToSelectLink) {
+                clickToSelectLink.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    excelFileInput.click();
+                });
+            }
+
+            excelFileInput.addEventListener("change", (e) => { if (e.target.files.length > 0) handleFileSelected(e.target.files[0]); });
+            cancelUploadBtn.addEventListener("click", resetFileSelection);
+
+            confirmUploadBtn.addEventListener("click", async () => {
+                if (!parsedExcelData || parsedExcelData.length === 0) return alert("กรุณาเลือกไฟล์ Excel");
+                confirmUploadBtn.disabled = true;
+                confirmUploadBtn.textContent = "กำลังบันทึกสู่ Firebase...";
+
+                try {
+                    const batchId = "BATCH-" + Date.now().toString().slice(-6);
+                    const timestampStr = new Date().toLocaleString("th-TH");
+                    const userRegion = currentUser.region || "BKK";
+                    const globalImagesBase64 = currentBatchImages.map(img => img.base64);
+                    let anyBatchHasImage = globalImagesBase64.length > 0;
+
+                    const batchRef = db.batch();
+
+                    const newLogs = parsedExcelData.map((row, idx) => {
+                        let detectedRegion = row["Region"] || row["region"] || row["ภูมิภาค"] || userRegion;
+                        const specificRowImgs = (rowImagesMap[idx] || []).map(img => img.base64);
+                        const combinedImages = [...specificRowImgs, ...globalImagesBase64].slice(0, 5);
+                        if (combinedImages.length > 0) anyBatchHasImage = true;
+                        const primaryImage = combinedImages.length > 0 ? combinedImages[0] : null;
+
+                        const logRef = db.collection("order_logs").doc();
+                        const logData = {
+                            batchId,
+                            fileName: currentFileName,
+                            uploadedBy: currentUser.fullName || currentUser.email,
+                            region: String(detectedRegion).trim(),
+                            uploadedAt: timestampStr,
+                            teamName: String(row["Team Name"] || row["teamName"] || "-"),
+                            staffName: String(row["Staff name"] || row["staffName"] || "-"),
+                            workType: String(row["ประเภทของงาน"] || row["workType"] || "Install"),
+                            orderNo: String(row["ORDER NO"] || row["orderNo"] || "-"),
+                            internetId: String(row["Internet ID"] || row["internetId"] || "-"),
+                            appointmentDate: String(row["วันนัดหมาย"] || row["appointmentDate"] || "-"),
+                            slot: String(row["Slot (xx.xx-xx.xx)"] || row["slot"] || "-"),
+                            soaLateReason: String(row["Soa Late Reason"] || row["soaLateReason"] || "-"),
+                            soaLateRemark: String(row["Soa Late Reason Remark"] || row["soaLateRemark"] || "-"),
+                            relaxProcess: String(row["Relax Process Install"] || row["relaxProcess"] || "-"),
+                            imageBase64: primaryImage,
+                            imagesList: combinedImages,
+                            hasImage: combinedImages.length > 0,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        batchRef.set(logRef, logData);
+                        return logData;
+                    });
+
+                    // Save batch history
+                    const batchHistoryRef = db.collection("batches").doc();
+                    batchRef.set(batchHistoryRef, {
+                        batchId,
+                        fileName: currentFileName,
+                        rowCount: newLogs.length,
+                        uploadedBy: currentUser.fullName || currentUser.email,
+                        region: userRegion,
+                        uploadedAt: timestampStr,
+                        hasImage: anyBatchHasImage,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    await batchRef.commit();
+                    alert("บันทึกข้อมูลลง Firebase Firestore สำเร็จ!");
+                    resetFileSelection();
+                    loadDataFromFirebase();
+                } catch (err) {
+                    alert("เกิดข้อผิดพลาด: " + err.message);
+                    confirmUploadBtn.disabled = false;
+                    confirmUploadBtn.textContent = "บันทึกข้อมูลลง Firebase";
+                }
+            });
+
+            
+            // Export UX & Action Handler
+            const exportContainer = document.getElementById("export-section-container");
+            const exportBtnIcon = document.getElementById("export-btn-icon");
+            const exportBtnText = document.getElementById("export-btn-text");
+
+
+            function updateExportUIStyle() {
+                const format = exportFormatSelect ? exportFormatSelect.value : "xlsx";
+                if (format === "txt") {
+                    exportContainer.className = "flex items-center self-start sm:self-auto bg-sky-600 rounded-xl overflow-hidden shadow-sm transition-all duration-300";
+                    exportFormatSelect.className = "bg-sky-700 text-white text-xs font-semibold px-2.5 py-2 focus:outline-none cursor-pointer border-l border-sky-500/60 transition-colors";
+                    exportBtnIcon.className = "fa-solid fa-file-lines";
+                    exportBtnText.textContent = "Export Text (.txt)";
+                } else {
+                    exportContainer.className = "flex items-center self-start sm:self-auto bg-emerald-600 rounded-xl overflow-hidden shadow-sm transition-all duration-300";
+                    exportFormatSelect.className = "bg-emerald-700 text-white text-xs font-semibold px-2.5 py-2 focus:outline-none cursor-pointer border-l border-emerald-500/60 transition-colors";
+                    exportBtnIcon.className = "fa-solid fa-file-excel";
+                    exportBtnText.textContent = "Export Excel";
+                }
+            }
+
+            if (exportFormatSelect) {
+                exportFormatSelect.addEventListener("change", updateExportUIStyle);
+                updateExportUIStyle();
+            }
+
+            if (exportDropdownBtn) {
+                exportDropdownBtn.addEventListener("click", () => {
+                    const format = exportFormatSelect ? exportFormatSelect.value : "xlsx";
+                    const filteredLogs = getFilteredLogs();
+                    if (filteredLogs.length === 0) {
+                        alert("ไม่มีข้อมูลสำหรับ Export");
+                        return;
+                    }
+
+                    if (format === "xlsx") {
+                        const dataForExcel = filteredLogs.map(l => ({
+                            "Region": l.region,
+                            "Team Name": l.teamName,
+                            "Staff name": l.staffName,
+                            "ประเภทของงาน": l.workType,
+                            "ORDER NO": l.orderNo,
+                            "Internet ID": l.internetId,
+                            "วันนัดหมาย": l.appointmentDate,
+                            "Slot (xx.xx-xx.xx)": l.slot,
+                            "Soa Late Reason": l.soaLateReason,
+                            "Soa Late Reason Remark": l.soaLateRemark,
+                            "Relax Process Install": l.relaxProcess,
+                            "วันที่อัพโหลดข้อมูล": l.uploadedAt,
+                            "สถานะรูปภาพหลักฐาน": l.imagesList && l.imagesList.length > 0 ? `มีรูปภาพประกอบ (${l.imagesList.length} รูป)` : "ไม่มีรูปภาพ"
+                        }));
+                        const ws = XLSX.utils.json_to_sheet(dataForExcel);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, "OrderLogs");
+                        XLSX.writeFile(wb, "Order_Dispatch_Logs_Export.xlsx");
+                    } else if (format === "txt") {
+                        const defaultDate = new Date();
+                        defaultDate.setMonth(defaultDate.getMonth() - 1);
+                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        const mStr = monthNames[defaultDate.getMonth()];
+                        const yStr = String(defaultDate.getFullYear()).slice(-2);
+                        const monthYearLabel = mStr + yStr;
+
+                        let txtContent = `// ${monthYearLabel}\n`;
+                        filteredLogs.forEach((l) => {
+                            const internetId = l.internetId || l.InternetID || '-';
+                            if (internetId && internetId !== '-') {
+                                txtContent += `ELSEIF [Non Mobile No] = '${internetId}' THEN 'exclude'\n`;
+                            }
+                        });
+
+                        const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8;" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${monthYearLabel}_Order_Export.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                });
+            }
+
+            logSearchInput.addEventListener("input", renderLogs);
+            filterRegion.addEventListener("change", renderLogs);
+            filterDateStart.addEventListener("change", renderLogs);
+            filterDateEnd.addEventListener("change", renderLogs);
+            resetFiltersBtn.addEventListener("click", () => {
+                logSearchInput.value = ""; filterRegion.value = ""; filterDateStart.value = ""; filterDateEnd.value = ""; renderLogs();
+            });
+        }
+
+        async function loadDataFromFirebase() {
+            try {
+                // Load Logs
+                let query = db.collection("order_logs").orderBy("createdAt", "desc");
+                const logSnap = await query.get();
+                allLogs = [];
+                logSnap.forEach(doc => allLogs.push({ id: doc.id, ...doc.data() }));
+
+                // Load Batches
+                const batchSnap = await db.collection("batches").orderBy("createdAt", "desc").get();
+                uploadBatches = [];
+                batchSnap.forEach(doc => uploadBatches.push({ id: doc.id, ...doc.data() }));
+
+                updateRegionFilterDropdown();
+                renderLogs();
+                renderBatches();
+                updateStats();
+            } catch (err) {
+                console.error("Error loading data:", err);
+            }
+        }
+
+        function handleFileSelected(file) {
+            console.log("File selected:", file.name);
+            currentFileName = file.name;
+            if (selectedFileName) selectedFileName.textContent = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    parsedExcelData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    console.log("Parsed rows:", parsedExcelData.length);
+                    if (selectedFileRows) selectedFileRows.textContent = `${parsedExcelData.length} แถว`;
+                    
+                    rowImagesMap = {};
+                    renderRowAttachmentList();
+                    if (fileSelectedActions) fileSelectedActions.classList.remove("hidden");
+                    if (dropZone) dropZone.classList.add("hidden");
+                } catch (err) {
+                    console.error("Excel parse error:", err);
+                    alert("อ่านไฟล์ Excel ไม่สำเร็จ: " + err.message);
+                }
+            };
+            reader.onerror = function(err) {
+                console.error("FileReader error:", err);
+                alert("ไม่สามารถอ่านไฟล์ได้");
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function resetFileSelection() {
+            currentFileName = "";
+            parsedExcelData = [];
+            currentBatchImages = [];
+            rowImagesMap = {};
+            const rowListEl = document.getElementById("row-attachment-list");
+            if (rowListEl) rowListEl.innerHTML = "";
+            const previewGrid = document.getElementById("multi-image-preview-grid");
+            const removeImagesBtn = document.getElementById("remove-images-btn");
+            if (previewGrid) { previewGrid.innerHTML = ""; previewGrid.classList.add("hidden"); }
+            if (removeImagesBtn) removeImagesBtn.classList.add("hidden");
+            if (imageStatusText) {
+                imageStatusText.textContent = "ยังไม่ได้เลือกรูปภาพ (เลือกได้สูงสุด 5 รูป)";
+                imageStatusText.classList.remove("text-indigo-600", "font-medium");
+            }
+            if (attachBtnText) attachBtnText.textContent = "เลือกรูปภาพ (สูงสุด 5 รูป)";
+            if (excelFileInput) excelFileInput.value = "";
+            if (batchImageInput) batchImageInput.value = "";
+            if (fileSelectedActions) fileSelectedActions.classList.add("hidden");
+            if (dropZone) dropZone.classList.remove("hidden");
+            if (confirmUploadBtn) {
+                confirmUploadBtn.disabled = false;
+                confirmUploadBtn.innerHTML = '<i class="fa-solid fa-check"></i> บันทึกข้อมูลลง Firebase';
+            }
+        }
+
+        function updateRegionFilterDropdown() {
+            const defaultRegs = ["BKK", "ROC", "RON", "RONE", "ROS"];
+            const logRegs = allLogs.map(l => l.region).filter(Boolean);
+            const unique = Array.from(new Set([...defaultRegs, ...logRegs]));
+            const cur = filterRegion.value;
+            filterRegion.innerHTML = `<option value="">ทุก Region (All Regions)</option>` + unique.map(r => `<option value="${r}">${r}</option>`).join("");
+            if (unique.includes(cur)) filterRegion.value = cur;
+        }
+
+        function getFilteredLogs() {
+            const search = logSearchInput.value.toLowerCase();
+            const regFilter = filterRegion.value;
+            const startDateVal = filterDateStart.value; // YYYY-MM-DD
+            const endDateVal = filterDateEnd.value;     // YYYY-MM-DD
+
+            return allLogs.filter(log => {
+                // Role-based restriction: if user is not admin, restrict to their region
+                if (currentUser && currentUser.role !== 'admin' && currentUser.region !== 'ALL' && log.region !== currentUser.region) {
+                    return false;
+                }
+                const matchSearch = log.orderNo.toLowerCase().includes(search) || log.teamName.toLowerCase().includes(search) || log.staffName.toLowerCase().includes(search) || log.internetId.toLowerCase().includes(search);
+                const matchReg = regFilter ? log.region === regFilter : true;
+
+                // Date filtering based on uploadedAt or appointmentDate
+                let matchDate = true;
+                if (startDateVal || endDateVal) {
+                    // แปลงวันเวลาที่อัปโหลด (เช่น "13/11/2569 10:11:28" หรือ "2026-11-13") ให้เป็น YYYY-MM-DD เพื่อเทียบ
+                    let logDateStr = "";
+                    const upStr = log.uploadedAt || "";
+                    // ถ้าอยู่ในรูปแบบ DD/MM/YYYY (พ.ศ. หรือ ค.ศ.)
+                    const parts = upStr.split(" ")[0].split("/");
+                    if (parts.length === 3) {
+                        let y = parseInt(parts[2]);
+                        if (y > 2400) y -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+                        logDateStr = `${y}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                    } else {
+                        logDateStr = upStr.substring(0, 10);
+                    }
+
+                    if (startDateVal && logDateStr < startDateVal) matchDate = false;
+                    if (endDateVal && logDateStr > endDateVal) matchDate = false;
+                }
+
+                return matchSearch && matchReg && matchDate;
+            });
+        }
+
         
-        const actionLogText = lockState 
-          ? `ผู้ใช้งาน ${userName} (${userProfile.role}) ทำการ [ล็อกสถานะงาน] เพื่อเริ่มตรวจสอบ` 
-          : `ผู้ใช้งาน ${userName} (${userProfile.role}) ทำการ [ปลดล็อกสถานะงาน]`;
+        // ฟังก์ชันเปิดดูอัลบั้มรูปภาพหลักฐานทั้งหมด (สูงสุด 5 รูป) พร้อมปุ่มเลื่อนดูรูป
+        let currentGalleryImages = [];
+        let currentGalleryIndex = 0;
+        let currentGalleryTitle = "";
 
-        const newLogs = [...(order.logs || []), {
-          time: timeNow,
-          role: userProfile.role,
-          text: actionLogText
-        }];
-
-        const updatePayload = {
-          isLocked: lockState,
-          lockedBy: lockState ? currentId : "",
-          lockedByName: lockState ? userName : "",
-          lockedAt: lockState ? timeNow : "",
-          lockedAtTimestamp: lockState ? nowMs : null,
-          logs: newLogs
-        };
-        await window.fs.updateDoc(window.fs.doc(window.db, "orders", orderId), updatePayload);
-        alert(lockState ? `ล็อกสถานะงาน (เวลา ${timeNow}) ` : "ปลดล็อกสถานะงาน");
-      }
-    }
-
-    // EXPORT EXCEL (ปรับลำดับ Column ตามที่คุณต้องการ)
-    function exportToExcel() {
-      if (currentRoleView === 'TECHNICIAN' && (!window.currentUserProfile || window.currentUserProfile.role !== 'ADMIN')) {
-        alert("สิทธิ์ช่าง (Technician) ไม่สามารถ Export ข้อมูล Excel ได้");
-        return;
-      }
-      const startDate = document.getElementById('filterStartDate').value;
-      const endDate = document.getElementById('filterEndDate').value;
-      let list = window.orders || [];
-
-      if (startDate && endDate) {
-        list = list.filter(o => {
-          const d = o.createdAtString || '';
-          return d >= startDate && d <= endDate;
-        });
-      }
-
-      if (list.length === 0) {
-        alert("ไม่มีข้อมูลในช่วงวันที่เลือกสำหรับ Export Excel");
-        return;
-      }
-
-      const regionMap = {
-        'ภาคกลาง': 'ROC',
-        'กรุงเทพมหานคร': 'BKK',
-        'ภาคตะวันออก': 'ROE',
-        'ภาคเหนือ': 'RONE',
-        'ภาคใต้': 'ROS',
-        'ภาคตะวันออกเฉียงเหนือ': 'NE',
-        'ภาคตะวันตก': 'ROC'
-      };
-
-      const excelData = list.map(o => {
-        let mappedRegion = o.region || "";
-        if (o.province === "กรุงเทพมหานคร") {
-          mappedRegion = "BKK";
-        } else if (regionMap[o.region]) {
-          mappedRegion = regionMap[o.region];
+        function openImageGallery(imagesJsonStr, titleText) {
+            try {
+                const images = JSON.parse(imagesJsonStr);
+                if (!images || images.length === 0) return;
+                currentGalleryImages = images;
+                currentGalleryIndex = 0;
+                currentGalleryTitle = titleText;
+                renderGallerySlide();
+            } catch(e) {
+                console.error(e);
+            }
         }
 
-        return {
-          "Job ID": o.id || "",
-          "Internet no.": o.internetNo || "",
-          "Symptom": o.symptom || "",
-          "ชื่อช่าง": o.techName || "",
-          "เบอร์ติดต่อช่าง": o.techPhone || "",
-          "ตำบล": o.subdistrict || "",
-          "อำเภอ": o.district || "",
-          "จังหวัด": o.province || "",
-          "Region": mappedRegion,
-          "Latitude": o.lat || "",
-          "Longitude": o.lng || "",
-          "Request Date Time": o.createdAtText || (o.createdAt && o.createdAt.seconds ? new Date(o.createdAt.seconds * 1000).toLocaleString("sv-SE").replace("T", " ") : (o.createdAt || "")),
-          "Accept job Date Time": o.lockedAt || "",
-          "Close job Date Time": o.processedAt || "",
-          "ผลการตรวจสอบ": o.status === 'BBIM_APPROVED' ? 'สามารถติดตั้งได้' : (o.status === 'BBIM_REJECTED' ? 'ไม่อนุมัติ' : o.status || ""),
-          "หมายเหตุ (จากBBIM)": o.bbimNote || "",
-          "Owner Accept": o.ownerAccept || ""
+        function renderGallerySlide() {
+            const total = currentGalleryImages.length;
+            const imgSrc = currentGalleryImages[currentGalleryIndex];
+            modalImgElement.src = imgSrc;
+            const downloadBtn = document.getElementById("download-modal-img-btn");
+            if (downloadBtn) {
+                downloadBtn.href = imgSrc;
+                downloadBtn.download = `proof_image_${currentGalleryIndex + 1}.jpg`;
+            }
+            imageModalTitle.innerHTML = `${escapeHtml(currentGalleryTitle)} (รูปที่ ${currentGalleryIndex + 1} / ${total}) ` + 
+                (total > 1 ? `<span class="ml-2 inline-flex gap-1">
+                    <button type="button" onclick="changeGallerySlide(-1)" class="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold text-slate-700">&lt; ก่อนหน้า</button>
+                    <button type="button" onclick="changeGallerySlide(1)" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 rounded text-xs font-bold text-white">ถัดไป &gt;</button>
+                </span>` : '');
+            imageModal.classList.remove("hidden");
+        }
+
+        window.changeGallerySlide = function(step) {
+            if (currentGalleryImages.length <= 1) return;
+            currentGalleryIndex = (currentGalleryIndex + step + currentGalleryImages.length) % currentGalleryImages.length;
+            renderGallerySlide();
         };
-      });
+        window.openImageGallery = openImageGallery;
+    
+        function openImageViewer(base64, title) {
+            modalImgElement.src = base64;
+            imageModalTitle.textContent = title || "ภาพประกอบ";
+            const downloadBtn = document.getElementById("download-modal-img-btn");
+            if (downloadBtn) {
+                downloadBtn.href = base64;
+                downloadBtn.download = (title ? title.replace(/[^a-zA-Z0-9ก-ฮ]/g, "_") : "proof_image") + ".jpg";
+            }
+            imageModal.classList.remove("hidden");
+        }
+        window.openImageViewer = openImageViewer;
 
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Report");
-      XLSX.writeFile(workbook, `Order_Report_${startDate || 'All'}_to_${endDate || 'All'}.xlsx`);
+        function renderLogs() {
+            const filtered = getFilteredLogs();
+            tableRowCount.textContent = `แสดงผล ${filtered.length} จากทั้งหมด ${allLogs.length} รายการ`;
+            if (filtered.length === 0) {
+                logTableBody.innerHTML = `<tr><td colspan="14" class="text-center py-8 text-slate-400">ไม่พบข้อมูล Log บนระบบ</td></tr>`;
+                return;
+            }
+            logTableBody.innerHTML = filtered.map((log, idx) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-3 text-slate-400">${idx + 1}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${escapeHtml(log.region)}</span></td>
+                    <td class="p-3 font-semibold">${escapeHtml(log.teamName)}</td>
+                    <td class="p-3">${escapeHtml(log.staffName)}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-50/80 text-blue-700">${escapeHtml(log.workType)}</span></td>
+                    <td class="p-3 font-mono font-medium text-indigo-600">${escapeHtml(log.orderNo)}</td>
+                    <td class="p-3 font-mono">${escapeHtml(log.internetId)}</td>
+                    <td class="p-3">${escapeHtml(log.appointmentDate)}</td>
+                    <td class="p-3 font-mono">${escapeHtml(log.slot)}</td>
+                    <td class="p-3">${log.soaLateReason && log.soaLateReason !== '-' ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700">${escapeHtml(log.soaLateReason)}</span>` : '-'}</td>
+                    <td class="p-3 text-slate-500 max-w-xs truncate">${escapeHtml(log.soaLateRemark)}</td>
+                    <td class="p-3">${escapeHtml(log.relaxProcess)}</td>
+                    <td class="p-3 font-mono text-[11px] text-blue-700 bg-indigo-50/80/30">${escapeHtml(log.uploadedAt)}</td>
+                    <td class="p-3 text-center">
+                        ${log.imagesList && log.imagesList.length > 1 ? 
+        `<button onclick="openImageGallery('${escapeHtml(JSON.stringify(log.imagesList))}', 'Order: ${escapeHtml(log.orderNo)}')" class="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded text-xs font-semibold hover:bg-violet-100"><i class="fa-solid fa-images"></i> ดูรูป (${log.imagesList.length})</button>` :
+        (log.imageBase64 ? `<button onclick="openImageViewer('${log.imageBase64}', 'Order: ${escapeHtml(log.orderNo)}')" class="px-2 py-1 bg-indigo-50/80 text-blue-700 rounded text-xs font-semibold hover:bg-blue-100"><i class="fa-solid fa-image"></i> ดูรูป</button>` : '-')
     }
+                    </td>
+                </tr>
+            `).join("");
+        }
 
-    // Live Timer Interval Tracker
-    setInterval(() => {
-      const timerEl = document.getElementById('live-timer-counter');
-      if (timerEl) {
-        const startTs = parseInt(timerEl.getAttribute('data-timestamp')) || Date.now();
-        const elapsedSecs = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
-        timerEl.innerText = formatSecondsToTime(elapsedSecs);
-      }
-    }, 1000);
-  </script>
+        function renderBatches() {
+            if (uploadBatches.length === 0) {
+                batchHistoryList.innerHTML = `<p class="text-xs text-slate-400">ยังไม่มีประวัติการอัปโหลด</p>`;
+                return;
+            }
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            batchHistoryList.innerHTML = uploadBatches.map(b => `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-100 rounded-xl text-xs">
+                    <div>
+                        <p class="font-bold text-slate-900">${escapeHtml(b.fileName)} (${b.batchId}) ${b.hasImage ? '<span class="text-indigo-600 ml-1"><i class="fa-solid fa-image"></i> (มีรูป)</span>' : ''}</p>
+                        <p class="text-[11px] text-slate-500">อัปโหลดโดย: ${escapeHtml(b.uploadedBy)} • Region: ${escapeHtml(b.region)} • ${b.uploadedAt} • ${b.rowCount} แถว</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${isAdmin ? `
+                            <button onclick="downloadBatchExcel('${b.batchId}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition flex items-center gap-1 shadow-xs" title="ดาวน์โหลดข้อมูลชุดนี้เป็น Excel">
+                                <i class="fa-solid fa-download"></i> ดาวน์โหลด
+                            </button>
+                            <button onclick="deleteBatch('${b.id}', '${b.batchId}')" class="px-3 py-1.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 border border-red-200 rounded-lg font-semibold transition flex items-center gap-1 shadow-xs" title="ลบข้อมูลและประวัตินี้">
+                                <i class="fa-solid fa-trash-can"></i> ลบ
+                            </button>
+                        ` : ''}
+                        
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function updateStats() {
+            statTotalLogs.textContent = allLogs.length;
+            const regs = new Set(allLogs.map(l => l.region).filter(Boolean));
+            statRegionCount.textContent = regs.size;
+            const lates = allLogs.filter(l => l.soaLateReason && l.soaLateReason !== "-" && l.soaLateReason.trim() !== "").length;
+            statLateCount.textContent = lates;
+            const imgs = allLogs.filter(l => l.hasImage).length;
+            statImageCount.textContent = imgs;
+        }
+
+        function showAuthError(msg) {
+            authError.classList.remove("hidden");
+            authErrorText.textContent = msg;
+            authSubmitBtn.disabled = false;
+            authSubmitText.textContent = isSignUpMode ? "สมัครสมาชิก" : "เข้าสู่ระบบ";
+        }
+
+        
+        // ฟังก์ชันดาวน์โหลดข้อมูลใน Batch นั้นๆ เป็นไฟล์ Excel (.xlsx) สำหรับ Admin
+        async function downloadBatchExcel(batchId) {
+            try {
+                const logsToExport = allLogs.filter(l => l.batchId === batchId);
+                if (logsToExport.length === 0) return alert("ไม่พบข้อมูลใน Batch นี้");
+
+                const dataForExcel = logsToExport.map(l => ({
+                    "Region": l.region,
+                    "Team Name": l.teamName,
+                    "Staff name": l.staffName,
+                    "ประเภทของงาน": l.workType,
+                    "ORDER NO": l.orderNo,
+                    "Internet ID": l.internetId,
+                    "วันนัดหมาย": l.appointmentDate,
+                    "Slot (xx.xx-xx.xx)": l.slot,
+                    "Soa Late Reason": l.soaLateReason,
+                    "Soa Late Reason Remark": l.soaLateRemark,
+                    "Relax Process Install": l.relaxProcess,
+                    "สถานะรูปภาพหลักฐาน": l.imagesList && l.imagesList.length > 0 ? `มีรูปภาพประกอบ (${l.imagesList.length} รูป)` : "ไม่มีรูปภาพ"
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(dataForExcel);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Batch_" + batchId);
+                XLSX.writeFile(wb, `Order_Log_${batchId}.xlsx`);
+            } catch (err) {
+                alert("เกิดข้อผิดพลาดในการดาวน์โหลด: " + err.message);
+            }
+        }
+        window.downloadBatchExcel = downloadBatchExcel;
+
+        // ฟังก์ชันลบประวัติและข้อมูล Log ทั้งหมดใน Batch นั้นๆ บน Firebase สำหรับ Admin
+        async function deleteBatch(docId, batchId) {
+            if (!confirm(`คุณต้องการลบข้อมูลทั้งหมดใน Batch (${batchId}) รวมถึง Log ที่เกี่ยวข้องใช่หรือไม่?`)) return;
+
+            try {
+                // ลบเอกสารใน collection batches
+                await db.collection("batches").doc(docId).delete();
+
+                // ค้นหาและลบเอกสาร Log ทั้งหมดที่มี batchId ตรงกัน
+                const logQuery = await db.collection("order_logs").where("batchId", "==", batchId).get();
+                const batchWrite = db.batch();
+                logQuery.forEach(doc => {
+                    batchWrite.delete(doc.ref);
+                });
+                await batchWrite.commit();
+
+                alert("ลบข้อมูลและประวัติเรียบร้อยแล้ว!");
+                loadDataFromFirebase();
+            } catch (err) {
+                alert("เกิดข้อผิดพลาดในการลบ: " + err.message);
+            }
+        }
+        window.deleteBatch = deleteBatch;
+    
+
+        function renderRowAttachmentList() {
+            const container = document.getElementById("row-attachment-list");
+            if (!container) return;
+            if (!parsedExcelData || parsedExcelData.length === 0) {
+                container.innerHTML = `<div class="p-3 text-center text-xs text-slate-400">ไม่พบข้อมูลแถวในไฟล์ Excel</div>`;
+                return;
+            }
+
+            container.innerHTML = parsedExcelData.map((row, idx) => {
+                const regionVal = row["Region"] || row["region"] || row["ภูมิภาค"] || (currentUser ? currentUser.region : "-");
+                const orderVal = row["ORDER NO"] || row["Order No"] || row["orderNo"] || "-";
+                const internetIdVal = row["Internet ID"] || row["internetId"] || row["InternetID"] || "";
+                const teamVal = row["Team Name"] || row["teamName"] || row["Team"] || "-";
+                const imgs = rowImagesMap[idx] || [];
+
+                const thumbsHtml = imgs.map((imgObj, imgIdx) => `
+                    <div class="relative w-10 h-10 rounded border border-slate-300 overflow-hidden bg-slate-100 shrink-0">
+                        <img src="${imgObj.base64}" class="w-full h-full object-cover cursor-pointer" onclick="openImageViewer('${imgObj.base64}', 'Row ${idx + 1} - Order: ${escapeHtml(String(orderVal))}')" title="คลิกเพื่อดูรูป">
+                        <button type="button" onclick="removeRowSingleImage(${idx}, ${imgIdx})" class="absolute top-0 right-0 bg-red-600 text-white w-3.5 h-3.5 flex items-center justify-center text-[8px] leading-none" title="ลบรูป">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `).join("");
+
+                return `
+                    <div class="p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50 transition">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[10px] font-bold shrink-0">#${idx + 1}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold text-[10px] shrink-0">${escapeHtml(String(regionVal))}</span>
+                            <span class="font-mono font-semibold text-indigo-600 truncate">${escapeHtml(String(orderVal))}</span>
+                            <span class="text-slate-500 truncate">(${escapeHtml(String(teamVal))})</span>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            ${thumbsHtml ? `<div class="flex items-center gap-1">${thumbsHtml}</div>` : ''}
+                            <label class="cursor-pointer px-2.5 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[11px] font-semibold transition flex items-center gap-1">
+                                <i class="fa-solid fa-camera"></i> <span>${imgs.length > 0 ? `เพิ่มรูป (${imgs.length}/5)` : '+ แนบรูป'}</span>
+                                <input type="file" accept="image/*" multiple class="hidden" onchange="handleRowImageSelect(${idx}, this)">
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        window.handleRowImageSelect = function(rowIdx, inputEl) {
+            const files = Array.from(inputEl.files);
+            if (files.length === 0) return;
+            if (!rowImagesMap[rowIdx]) rowImagesMap[rowIdx] = [];
+
+            if (rowImagesMap[rowIdx].length + files.length > 5) {
+                alert("แนบรูปภาพได้สูงสุดไม่เกิน 5 รูปต่อแถวครับ");
+                inputEl.value = "";
+                return;
+            }
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement("canvas");
+                        const MAX_W = 800, MAX_H = 800;
+                        let w = img.width, h = img.height;
+                        if (w > h && w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
+                        else if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                        const base64Str = canvas.toDataURL("image/jpeg", 0.7);
+                        
+                        rowImagesMap[rowIdx].push({ name: file.name, base64: base64Str });
+                        renderRowAttachmentList();
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+            inputEl.value = "";
+        };
+
+        window.removeRowSingleImage = function(rowIdx, imgIdx) {
+            if (rowImagesMap[rowIdx]) {
+                rowImagesMap[rowIdx].splice(imgIdx, 1);
+                renderRowAttachmentList();
+            }
+        };
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
 </body>
 </html>
